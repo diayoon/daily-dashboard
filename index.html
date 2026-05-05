@@ -289,6 +289,31 @@
   .error b { color: var(--bad); }
   .updated { font-size: 11px; color: var(--subtle); margin-top: 8px; }
 
+  /* 주가 행 안의 에러는 셀에 깔끔히 들어가도록 */
+  .stock-error {
+    font-size: 11px; line-height: 1.35;
+    word-break: keep-all; white-space: normal;
+    cursor: help;
+  }
+  .stock-error .err-sum {
+    display: inline-block; font-size: 10.5px;
+    color: var(--bad); opacity: 0.95;
+  }
+  .stock-error .err-hint {
+    display: inline-block; font-size: 10px;
+    color: var(--subtle); margin-top: 2px;
+  }
+  .error-detail-pane {
+    padding: 14px 18px;
+    font-size: 12px; color: var(--bad);
+    line-height: 1.55; word-break: break-word;
+    background: rgba(197, 68, 60, 0.04);
+    border-radius: 12px;
+    height: 100%;
+    display: flex; align-items: center; justify-content: flex-start;
+    box-sizing: border-box;
+  }
+
   /* Calendar */
   /* Month notes */
   .month-notes {
@@ -1080,7 +1105,11 @@ async function fetchYahoo(symbol, range='3mo') {
       }
       let j;
       try { j = JSON.parse(text); }
-      catch(e) { errors.push(`${p.name}: JSON 파싱 실패`); continue; }
+      catch(e) {
+        const sample = text.slice(0, 60).replace(/\s+/g,' ');
+        errors.push(`${p.name}: 응답이 JSON 아님 (${text.length}자 "${sample}")`);
+        continue;
+      }
       if (j.chart && j.chart.error) {
         throw new Error('Yahoo: ' + (j.chart.error.description || j.chart.error.code || '알 수 없는 오류'));
       }
@@ -1130,14 +1159,36 @@ async function fetchStooq(symbol, range='3mo') {
   return points;
 }
 
-/* 통합: Yahoo 먼저 시도, 실패 시 Stooq 자동 폴백 */
+/* 동시 요청 제한 — 공개 프록시는 폭주에 약하므로 한 번에 3개씩만 */
+const _stockQueue = { active: 0, max: 3, waiting: [] };
+async function _stockSlot() {
+  if (_stockQueue.active >= _stockQueue.max) {
+    await new Promise(r => _stockQueue.waiting.push(r));
+  }
+  _stockQueue.active++;
+}
+function _stockRelease() {
+  _stockQueue.active--;
+  const next = _stockQueue.waiting.shift();
+  if (next) next();
+}
+
+/* 통합: Yahoo 먼저 시도, 실패 시 Stooq 자동 폴백
+   동시 요청을 슬롯으로 제한 + 약간의 jitter로 스파이크 방지 */
 async function fetchHistory(symbol, range='3mo') {
-  const errs = [];
-  try { return await fetchYahoo(symbol, range); }
-  catch(e) { errs.push('Yahoo(' + (e.message||e) + ')'); }
-  try { return await fetchStooq(symbol, range); }
-  catch(e) { errs.push('Stooq(' + (e.message||e) + ')'); }
-  throw new Error(errs.join(' → '));
+  await _stockSlot();
+  try {
+    // 50–250ms jitter — 같은 시점에 몰리지 않도록
+    await new Promise(r => setTimeout(r, 50 + Math.random() * 200));
+    const errs = [];
+    try { return await fetchYahoo(symbol, range); }
+    catch(e) { errs.push('Yahoo(' + (e.message||e) + ')'); }
+    try { return await fetchStooq(symbol, range); }
+    catch(e) { errs.push('Stooq(' + (e.message||e) + ')'); }
+    throw new Error(errs.join(' → '));
+  } finally {
+    _stockRelease();
+  }
 }
 
 /* From history we derive snapshot (latest + previous close + change) */
@@ -1168,6 +1219,19 @@ function explainError(e) {
   if (m.includes('no data') || m.includes('없음')) return '해당 심볼/기간 데이터 없음';
   if (m.includes('parse') || m.includes('파싱')) return '응답 형식 오류';
   return raw || '알 수 없는 오류';
+}
+
+/* 카드 셀에 들어갈 짧은 요약 (한 줄) */
+function summarizeError(raw) {
+  const m = (raw || '').toLowerCase();
+  if (m.includes('yahoo(') && m.includes('stooq(')) return 'Yahoo·Stooq 모두 실패';
+  if (m.includes('모든 프록시 실패') || m.includes('yahoo(')) return 'Yahoo 차단';
+  if (m.includes('stooq')) return 'Stooq 데이터 없음';
+  if (m.includes('safari')) return 'Safari CORS 차단';
+  if (m.includes('failed to fetch') || m.includes('네트워크')) return '네트워크 차단';
+  if (m.includes('파싱') || m.includes('parse')) return '응답 형식 오류';
+  if (m.includes('없음') || m.includes('no data')) return '데이터 없음';
+  return raw && raw.length > 30 ? raw.slice(0, 30) + '…' : (raw || '오류');
 }
 
 /* SVG sparkline */
@@ -1290,7 +1354,14 @@ async function renderStockList(targetId, defs, opts = {}) {
     } else {
       sparkEl.innerHTML = '';
       const reason = res.reason ? explainError(res.reason) : '알 수 없는 오류';
-      priceEl.innerHTML = `<div class="error" style="white-space:normal;word-break:break-word;line-height:1.4;"><b>실패</b><br>${escapeHtml(reason)}</div>`;
+      const summary = summarizeError(reason);
+      priceEl.innerHTML = `<div class="error stock-error" title="${escapeHtml(reason)}"><b>실패</b><br><span class="err-sum">${escapeHtml(summary)}</span><br><span class="err-hint">탭하여 자세히</span></div>`;
+      // chart-wrap 영역에 미리 에러 디테일을 채워서 행 클릭 시 펼쳐지게
+      const chartEl = target.querySelectorAll('.chart-wrap')[i];
+      if (chartEl) {
+        chartEl.dataset.errorDetail = reason;
+        chartEl.innerHTML = `<div class="error-detail-pane">${escapeHtml(reason)}</div>`;
+      }
     }
   });
   return snapshotList;
@@ -1305,6 +1376,8 @@ async function toggleChart(rowEl, chartEl) {
   }
   // Show
   chartEl.classList.remove('hidden');
+  // 에러 디테일이 미리 채워진 경우엔 차트 fetch 안 함 — 그대로 사유 보여줌
+  if (chartEl.dataset.errorDetail) return;
   if (_chartInstances.has(sym)) return;
   try {
     const hist = await getHistory(sym);
