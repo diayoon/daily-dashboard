@@ -1545,31 +1545,49 @@ const NEWS_FEEDS = {
 };
 
 async function fetchRssDirect(url, max=8) {
-  const r = await fetchViaProxies(url);
-  const text = await r.text();
-  if (!text || text.length < 50) throw new Error('빈 응답');
-  const parser = new DOMParser();
-  const xml = parser.parseFromString(text, 'application/xml');
-  if (xml.querySelector('parsererror')) throw new Error('RSS XML 파싱 실패');
-  const itemNodes = xml.querySelectorAll('item, entry');
-  if (itemNodes.length === 0) throw new Error('피드 안에 기사 없음');
-  const items = Array.from(itemNodes).slice(0, max).map(item => {
-    const get = sel => item.querySelector(sel)?.textContent?.trim() || '';
-    let link = get('link');
-    if (!link) {
-      // Atom feed: link is in @href attribute
-      const lnk = item.querySelector('link');
-      link = lnk?.getAttribute('href') || '';
+  // 프록시별로 순회 — 빈 응답/파싱 실패면 자동으로 다음 프록시 시도
+  const errors = [];
+  for (const p of CORS_PROXIES) {
+    try {
+      const r = await fetch(p.wrap(url));
+      if (!r.ok) { errors.push(`${p.name}: HTTP ${r.status}`); continue; }
+      const text = await r.text();
+      if (!text || text.length < 50) {
+        errors.push(`${p.name}: 빈 응답(${text ? text.length : 0}자)`);
+        continue;
+      }
+      const parser = new DOMParser();
+      const xml = parser.parseFromString(text, 'application/xml');
+      if (xml.querySelector('parsererror')) {
+        errors.push(`${p.name}: XML 파싱 실패`); continue;
+      }
+      const itemNodes = xml.querySelectorAll('item, entry');
+      if (itemNodes.length === 0) {
+        errors.push(`${p.name}: 기사 없음`); continue;
+      }
+      const items = Array.from(itemNodes).slice(0, max).map(item => {
+        const get = sel => item.querySelector(sel)?.textContent?.trim() || '';
+        let link = get('link');
+        if (!link) {
+          const lnk = item.querySelector('link');
+          link = lnk?.getAttribute('href') || '';
+        }
+        return {
+          title: get('title'),
+          link,
+          pubDate: get('pubDate') || get('published') || get('updated'),
+          author: get('source') || get('author') || get('dc\\:creator')
+        };
+      }).filter(x => x.title && x.link);
+      if (items.length === 0) {
+        errors.push(`${p.name}: 기사 추출 실패`); continue;
+      }
+      return items;
+    } catch(e) {
+      errors.push(`${p.name}: ${e.message || e}`);
     }
-    return {
-      title: get('title'),
-      link,
-      pubDate: get('pubDate') || get('published') || get('updated'),
-      author: get('source') || get('author') || get('dc\\:creator')
-    };
-  }).filter(x => x.title && x.link);
-  if (items.length === 0) throw new Error('기사 정보 추출 실패');
-  return items;
+  }
+  throw new Error('모든 프록시 실패 — ' + errors.join(' / '));
 }
 
 async function fetchNewsFromSource(sourceKey, max=8) {
