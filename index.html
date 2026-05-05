@@ -78,7 +78,8 @@
     font-size: 13px; font-weight: 600; letter-spacing: 0.04em;
     color: var(--muted); text-transform: uppercase;
   }
-  .greet { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .greet { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; cursor: pointer; }
+  .greet:hover #greet-name { text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 4px; }
   .greet .emoji { margin-right: 8px; }
   .date-row {
     color: var(--muted); font-size: 14px; margin-top: 6px;
@@ -154,8 +155,15 @@
   }
 
   /* Weather */
-  .weather-card { display: flex; flex-direction: column; gap: 8px; }
-  .weather-card .city { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .weather-card { display: flex; flex-direction: column; gap: 8px; position: relative; }
+  .weather-card .city { font-size: 13px; color: var(--muted); font-weight: 500; padding-right: 24px; }
+  .weather-del {
+    position: absolute; top: 10px; right: 12px;
+    border: none; background: transparent; color: var(--subtle);
+    cursor: pointer; padding: 4px 6px; font-size: 13px; border-radius: 6px;
+    line-height: 1; font-family: inherit;
+  }
+  .weather-del:hover { color: var(--bad); background: var(--bg); }
   .weather-card .temp { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
   .weather-card .temp .icon { font-size: 28px; margin-right: 8px; }
   .weather-card .desc { font-size: 14px; color: var(--text); }
@@ -370,6 +378,125 @@
   footer {
     margin-top: 60px; text-align: center; color: var(--subtle); font-size: 12px;
   }
+
+  /* Onboarding modal */
+  .onboard-overlay {
+    position: fixed; inset: 0;
+    background: rgba(20,20,20,0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: none;
+    z-index: 1000;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .onboard-overlay.show { display: flex; animation: fadeIn 0.3s; }
+  .onboard-card {
+    background: var(--card);
+    border-radius: 22px;
+    padding: 32px 28px 24px;
+    max-width: 360px; width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    text-align: center;
+  }
+  .onboard-icon {
+    width: 72px; height: 72px;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    margin-bottom: 16px;
+  }
+  .onboard-card h2 {
+    margin: 4px 0 10px; font-size: 22px; font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .onboard-sub {
+    color: var(--muted); font-size: 14px;
+    margin: 0 0 22px; line-height: 1.55;
+  }
+  .onboard-card input {
+    width: 100%; padding: 14px 16px;
+    border: 1.5px solid var(--border); border-radius: 12px;
+    font-size: 16px; font-family: inherit;
+    margin-bottom: 14px;
+    background: var(--bg);
+    text-align: center;
+  }
+  .onboard-card input:focus {
+    outline: none; border-color: var(--text); background: var(--card);
+  }
+  .onboard-cta {
+    width: 100%; padding: 13px;
+    font-size: 14px; font-weight: 600;
+  }
+  .onboard-cta:disabled { opacity: 0.4; cursor: not-allowed; }
+  .onboard-foot {
+    margin: 14px 0 0; font-size: 11px; color: var(--subtle);
+  }
+
+  /* =========================================
+     모바일 반응형 (iPhone 13 mini 기준 375px)
+     ========================================= */
+  @media (max-width: 480px) {
+    .wrap { padding: 18px 12px 60px; }
+    .card { padding: 14px 14px; border-radius: 14px; }
+    .greet { font-size: 22px; }
+    .date-row { font-size: 12px; }
+    .clock { font-size: 12px; padding: 6px 10px; }
+    .panel-title { font-size: 11px; margin: 20px 0 8px; }
+    .panel-title .hint { display: block; margin-top: 2px; }
+
+    /* 탭 — 4개 버튼이 좁아지도록 */
+    .tabs { width: 100%; box-sizing: border-box; flex-wrap: nowrap; padding: 4px; }
+    .tab { padding: 8px 10px; font-size: 12px; flex: 1; text-align: center; white-space: nowrap; }
+
+    /* 캘린더 — 헤더 1줄, 셀 컴팩트 */
+    .cal-header { gap: 8px; flex-wrap: nowrap; }
+    .cal-title { font-size: 16px; }
+    .cal-nav { gap: 4px; flex-shrink: 0; }
+    .cal-nav .btn { padding: 6px 10px; font-size: 13px; min-width: 32px; }
+    .cal-nav .btn-text { display: none; }
+
+    .cal-grid { gap: 3px; }
+    .cal-cell { padding: 4px 4px; font-size: 11px; min-height: 44px; border-radius: 7px; }
+    .cal-cell .cal-day-num { font-size: 11px; }
+    .cal-dots { gap: 2px; }
+    .cal-dot { width: 4px; height: 4px; }
+    .cal-weekday-row { gap: 3px; font-size: 10px; margin-bottom: 4px; }
+
+    /* 월별 키워드 영역 */
+    .month-notes { padding: 10px 12px; }
+    .month-notes-input { font-size: 13px; min-height: 40px; }
+
+    /* 주가 행 — 좁은 화면에서 깨지지 않도록 */
+    .stock-spark svg { width: 48px; }
+    .stock-price-block { min-width: 88px; }
+    .stock-symbol { font-size: 13px; }
+    .stock-label { font-size: 10px; }
+    .stock-price { font-size: 14px; }
+    .stock-change { font-size: 11px; }
+    .chart-wrap { height: 180px; padding: 10px 8px 6px; }
+
+    /* 날씨 — 가로 3개 → 세로 1개로 grid-3 변경은 이미 760px에서 처리됨 */
+    .weather-card .temp { font-size: 30px; }
+    .weather-card .meta { font-size: 11px; gap: 8px; }
+
+    /* 뉴스 */
+    .news-item a { font-size: 13px; }
+    .news-source-tab { padding: 4px 10px; font-size: 11px; }
+
+    /* 인풋/버튼 */
+    .row-actions { gap: 6px; }
+    .add-input { font-size: 13px; padding: 8px 10px; }
+    .btn { padding: 8px 12px; font-size: 12px; }
+
+    /* 헤더 클럭 위치 */
+    header.top { align-items: center; }
+
+    /* 온보딩 모달 */
+    .onboard-card { padding: 26px 22px 20px; max-width: 100%; }
+    .onboard-card h2 { font-size: 20px; }
+    .onboard-sub { font-size: 13px; }
+  }
 </style>
 </head>
 <body>
@@ -385,7 +512,7 @@
         <img src="icon-32.png" alt="" class="brand-icon" width="22" height="22">
         <span class="brand-name">Daystrip</span>
       </div>
-      <div class="greet"><span class="emoji" id="greet-emoji">🌤️</span><span id="greet-text">좋은 하루</span>, 디아</div>
+      <div class="greet" title="클릭해서 닉네임 변경"><span class="emoji" id="greet-emoji">🌤️</span><span id="greet-text">좋은 하루</span><span id="greet-name"></span></div>
       <div class="date-row" id="date-row">날짜 불러오는 중…</div>
     </div>
     <div class="clock" id="clock">--:--</div>
@@ -400,21 +527,13 @@
 
   <!-- ======= MORNING ======= -->
   <section class="panel" id="morning">
-    <div class="panel-title">날씨 <span class="hint">Open-Meteo</span></div>
-    <div class="grid grid-3" id="weather-grid">
-      <div class="card weather-card" data-city="강남구">
-        <div class="city">서울 강남구</div>
-        <div class="loading">불러오는 중…</div>
-      </div>
-      <div class="card weather-card" data-city="송파구">
-        <div class="city">서울 송파구</div>
-        <div class="loading">불러오는 중…</div>
-      </div>
-      <div class="card weather-card" data-city="대전">
-        <div class="city">대전</div>
-        <div class="loading">불러오는 중…</div>
-      </div>
+    <div class="panel-title">날씨 <span class="hint">Open-Meteo · 카드 우상단 ✕로 삭제</span></div>
+    <div class="grid grid-3" id="weather-grid"></div>
+    <div class="row-actions" style="margin-top: 12px;">
+      <input class="add-input" id="add-city" placeholder="도시 추가 (예: 부산, 제주, Tokyo)">
+      <button class="btn btn-primary" id="add-city-btn">추가</button>
     </div>
+    <div class="updated" id="city-message"></div>
 
     <div class="panel-title">밤사이 미국장 <span class="hint">행 클릭 → 3개월 차트 펼치기</span></div>
     <div class="grid grid-2">
@@ -425,6 +544,10 @@
       <div class="card">
         <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:500;">관심종목 (미국)</div>
         <div id="overnight-stocks"><div class="loading">불러오는 중…</div></div>
+        <div class="row-actions">
+          <input class="add-input" id="add-symbol-am" placeholder="티커 추가 (예: NVDA, 005930.KS)">
+          <button class="btn btn-primary" data-add-target="add-symbol-am">추가</button>
+        </div>
       </div>
     </div>
 
@@ -485,6 +608,10 @@
       <div class="card">
         <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:500;">관심종목 (실시간)</div>
         <div id="watchlist-pm"><div class="loading">불러오는 중…</div></div>
+        <div class="row-actions">
+          <input class="add-input" id="add-symbol-pm" placeholder="티커 추가 (예: NVDA, 005930.KS)">
+          <button class="btn btn-primary" data-add-target="add-symbol-pm">추가</button>
+        </div>
       </div>
     </div>
 
@@ -515,9 +642,9 @@
       <div class="cal-header">
         <div class="cal-title" id="cal-title">2026년 5월</div>
         <div class="cal-nav">
-          <button class="btn" id="cal-prev">‹ 지난달</button>
+          <button class="btn" id="cal-prev" title="지난달">‹<span class="btn-text"> 지난달</span></button>
           <button class="btn" id="cal-today">오늘</button>
-          <button class="btn" id="cal-next">다음달 ›</button>
+          <button class="btn" id="cal-next" title="다음달"><span class="btn-text">다음달 </span>›</button>
         </div>
       </div>
 
@@ -547,6 +674,18 @@
     Daystrip · 데이터: Open-Meteo · Yahoo Finance · Stooq · Google News · Investing.com<br>
     모든 데이터는 새로고침 시 최신화 · 일별 스냅샷은 브라우저(localStorage)에 저장돼요
   </footer>
+</div>
+
+<!-- 첫 방문 온보딩 모달 -->
+<div class="onboard-overlay" id="onboard">
+  <div class="onboard-card">
+    <img src="icon-180.png" alt="Daystrip" class="onboard-icon">
+    <h2>Daystrip에 오신 걸 환영해요</h2>
+    <p class="onboard-sub">시간대별로 펼쳐 보는 데일리 대시보드예요. 먼저, <b>어떻게 불러드릴까요?</b></p>
+    <input type="text" id="onboard-input" placeholder="예: 디아" maxlength="20" autocomplete="off">
+    <button class="btn btn-primary onboard-cta" id="onboard-save">시작하기</button>
+    <p class="onboard-foot">언제든 화면 위 인사말을 클릭하면 변경할 수 있어요.</p>
+  </div>
 </div>
 
 <script>
@@ -608,6 +747,15 @@ function setTab(name) {
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
 
+/* ---------- Nickname ---------- */
+function getNickname() {
+  return (localStorage.getItem('nickname') || '').trim();
+}
+function setNickname(name) {
+  const n = (name || '').trim();
+  if (n) localStorage.setItem('nickname', n);
+}
+
 /* ---------- Header ---------- */
 function updateHeader() {
   const d = nowKST();
@@ -617,6 +765,9 @@ function updateHeader() {
   const g = greetingFor(sec);
   document.getElementById('greet-emoji').textContent = g.e;
   document.getElementById('greet-text').textContent = g.t;
+  const nick = getNickname();
+  const nameEl = document.getElementById('greet-name');
+  if (nameEl) nameEl.textContent = nick ? ', ' + nick : '';
   document.querySelectorAll('.tab').forEach(t => {
     const dot = t.querySelector('.now-dot');
     if (t.dataset.tab === sec && !dot) {
@@ -625,6 +776,31 @@ function updateHeader() {
     if (t.dataset.tab !== sec && dot) dot.remove();
   });
 }
+
+/* ---------- Onboarding (first run + nickname change) ---------- */
+function showOnboarding() {
+  const overlay = document.getElementById('onboard');
+  const input = document.getElementById('onboard-input');
+  if (!overlay || !input) return;
+  input.value = getNickname() || '';
+  overlay.classList.add('show');
+  setTimeout(() => input.focus(), 150);
+}
+function hideOnboarding() {
+  document.getElementById('onboard')?.classList.remove('show');
+}
+document.getElementById('onboard-save')?.addEventListener('click', () => {
+  const v = (document.getElementById('onboard-input').value || '').trim();
+  if (!v) return;
+  setNickname(v);
+  hideOnboarding();
+  updateHeader();
+});
+document.getElementById('onboard-input')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('onboard-save').click();
+});
+// 인사말 클릭 → 닉네임 변경
+document.querySelector('.greet')?.addEventListener('click', () => showOnboarding());
 
 /* ---------- Market closed banner ---------- */
 function showMarketBanner() {
@@ -655,11 +831,20 @@ function showMarketBanner() {
 }
 
 /* ---------- Weather (Open-Meteo, no key) ---------- */
-const CITIES = [
-  { id:'강남구', name:'서울 강남구', lat:37.5172, lon:127.0473 },
-  { id:'송파구', name:'서울 송파구', lat:37.5145, lon:127.1059 },
-  { id:'대전',   name:'대전',         lat:36.3504, lon:127.3845 }
+const DEFAULT_CITIES = [
+  { id:'gangnam', name:'서울 강남구', lat:37.5172, lon:127.0473 },
+  { id:'songpa',  name:'서울 송파구', lat:37.5145, lon:127.1059 },
+  { id:'daejeon', name:'대전',         lat:36.3504, lon:127.3845 }
 ];
+function getCities() {
+  try {
+    const raw = localStorage.getItem('cities');
+    if (raw) return JSON.parse(raw);
+  } catch(_){}
+  return [...DEFAULT_CITIES];
+}
+function saveCities(arr) { localStorage.setItem('cities', JSON.stringify(arr)); }
+function uidCity() { return 'c-' + Math.random().toString(36).slice(2,9); }
 function weatherCodeToText(c) {
   if (c === 0) return { icon:'☀️', text:'맑음' };
   if ([1,2].includes(c)) return { icon:'🌤️', text:'대체로 맑음' };
@@ -673,10 +858,49 @@ function weatherCodeToText(c) {
   if ([95,96,99].includes(c)) return { icon:'⛈️', text:'천둥번개' };
   return { icon:'🌥️', text:'-' };
 }
+function renderWeatherSkeleton() {
+  const grid = document.getElementById('weather-grid');
+  if (!grid) return;
+  const cities = getCities();
+  grid.innerHTML = '';
+  cities.forEach(city => {
+    const card = document.createElement('div');
+    card.className = 'card weather-card';
+    card.dataset.cityId = city.id;
+    card.innerHTML = `
+      <button class="weather-del" title="삭제" data-del-id="${escapeHtml(city.id)}">✕</button>
+      <div class="city">${escapeHtml(city.name)}</div>
+      <div class="loading">불러오는 중…</div>
+    `;
+    grid.appendChild(card);
+  });
+  // 삭제 버튼
+  grid.querySelectorAll('.weather-del').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.delId;
+      const next = getCities().filter(c => c.id !== id);
+      saveCities(next);
+      renderWeatherSkeleton();
+      loadWeather();
+    });
+  });
+}
+
+/* 도시 추가 입력 바인딩 */
+document.getElementById('add-city-btn')?.addEventListener('click', addCityFromInput);
+document.getElementById('add-city')?.addEventListener('keydown', e => { if (e.key==='Enter') addCityFromInput(); });
+
 async function loadWeather() {
+  const cities = getCities();
+  if (cities.length === 0) {
+    document.getElementById('weather-grid').innerHTML = '<div class="loading" style="grid-column:1/-1;">표시할 도시가 없어요. 아래에서 추가해 주세요.</div>';
+    return;
+  }
   const snapshot = [];
-  for (const city of CITIES) {
-    const card = document.querySelector(`.weather-card[data-city="${city.id}"]`);
+  for (const city of cities) {
+    const card = document.querySelector(`.weather-card[data-city-id="${city.id}"]`);
+    if (!card) continue;
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FSeoul&forecast_days=1`;
       const r = await fetch(url);
@@ -688,7 +912,8 @@ async function loadWeather() {
       const tmin = Math.round((dly.temperature_2m_min||[])[0]);
       const pp   = (dly.precipitation_probability_max||[])[0];
       card.innerHTML = `
-        <div class="city">${city.name}</div>
+        <button class="weather-del" title="삭제" data-del-id="${escapeHtml(city.id)}">✕</button>
+        <div class="city">${escapeHtml(city.name)}</div>
         <div class="temp"><span class="icon">${wc.icon}</span>${Math.round(cur.temperature_2m)}°</div>
         <div class="desc">${wc.text} · 체감 ${Math.round(cur.apparent_temperature)}°</div>
         <div class="meta">
@@ -698,12 +923,81 @@ async function loadWeather() {
           <span>🌫️ 습도 ${cur.relative_humidity_2m}%</span>
         </div>
       `;
+      // 새로 그려진 삭제 버튼 핸들러
+      card.querySelector('.weather-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = getCities().filter(c => c.id !== city.id);
+        saveCities(next);
+        renderWeatherSkeleton();
+        loadWeather();
+      });
       snapshot.push({ city: city.id, name: city.name, temp: Math.round(cur.temperature_2m), feels: Math.round(cur.apparent_temperature), code: cur.weather_code, codeText: wc.text, icon: wc.icon, max: tmax, min: tmin, pp });
     } catch(e) {
-      card.innerHTML = `<div class="city">${city.name}</div><div class="error"><b>날씨 불러오기 실패</b><br>사유: ${escapeHtml(explainError(e))}</div>`;
+      card.innerHTML = `
+        <button class="weather-del" title="삭제" data-del-id="${escapeHtml(city.id)}">✕</button>
+        <div class="city">${escapeHtml(city.name)}</div>
+        <div class="error"><b>날씨 불러오기 실패</b><br>사유: ${escapeHtml(explainError(e))}</div>
+      `;
+      card.querySelector('.weather-del').addEventListener('click', (e) => {
+        e.stopPropagation();
+        const next = getCities().filter(c => c.id !== city.id);
+        saveCities(next);
+        renderWeatherSkeleton();
+        loadWeather();
+      });
     }
   }
   saveSnapshot('weather', snapshot);
+}
+
+/* 도시 검색 (geocoding) + 추가 */
+async function geocodeCity(name) {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=ko&format=json`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`서버 응답 ${r.status}`);
+  const j = await r.json();
+  if (!j.results || j.results.length === 0) {
+    throw new Error('해당 도시를 찾지 못했어요. 영문/한글로 다시 시도해 보세요.');
+  }
+  const first = j.results[0];
+  // 한국 도시면 "구/시" 단위까지, 그 외엔 country 표시
+  const labelParts = [first.name];
+  if (first.country_code === 'KR' && first.admin1 && first.admin1 !== first.name) {
+    labelParts.unshift(first.admin1);
+  } else if (first.country_code !== 'KR' && first.country) {
+    labelParts.push(first.country);
+  }
+  return {
+    id: uidCity(),
+    name: labelParts.join(' · '),
+    lat: first.latitude,
+    lon: first.longitude
+  };
+}
+
+async function addCityFromInput() {
+  const input = document.getElementById('add-city');
+  const msg = document.getElementById('city-message');
+  const v = (input.value || '').trim();
+  if (!v) return;
+  msg.textContent = '검색 중…';
+  try {
+    const city = await geocodeCity(v);
+    const list = getCities();
+    if (list.find(c => Math.abs(c.lat - city.lat) < 0.01 && Math.abs(c.lon - city.lon) < 0.01)) {
+      msg.textContent = '이미 추가된 도시예요.';
+      return;
+    }
+    list.push(city);
+    saveCities(list);
+    input.value = '';
+    msg.textContent = `"${city.name}" 추가됨`;
+    renderWeatherSkeleton();
+    await loadWeather();
+    setTimeout(() => { if (msg.textContent === `"${city.name}" 추가됨`) msg.textContent = ''; }, 3000);
+  } catch(e) {
+    msg.textContent = explainError(e);
+  }
 }
 
 /* ---------- CORS proxy helper ---------- */
@@ -800,6 +1094,8 @@ async function fetchYahoo(symbol, range='3mo') {
         close: closes[i]
       })).filter(pt => pt.close != null && !isNaN(pt.close));
       if (points.length === 0) throw new Error('Yahoo: 거래일 데이터 없음');
+      // 회사명/지수명 추출
+      points.shortName = (result.meta && (result.meta.shortName || result.meta.longName)) || null;
       return points;
     } catch(e) {
       // Yahoo가 명시적으로 실패한 경우는 다음 프록시 의미 없음 → 즉시 throw
@@ -863,9 +1159,11 @@ function changeArrow(c) { return c>0?'▲':c<0?'▼':'–'; }
 function explainError(e) {
   const raw = (e && e.message || String(e));
   const m = raw.toLowerCase();
+  // 다단계 폴백 정보가 담긴 메시지는 그대로 보여줘서 디버깅을 도와요
+  if (m.includes('yahoo(') || m.includes('stooq(') ||
+      m.includes('모든 경로 실패') || m.includes('모든 프록시 실패')) return raw;
   if (m.includes('load failed')) return 'Safari가 요청 차단 (CORS) — 프록시까지 실패';
   if (m.includes('failed to fetch') || m.includes('networkerror')) return '네트워크 오류 또는 CORS 차단 (인터넷/방화벽 확인)';
-  if (m.includes('모든 경로 실패')) return raw; // already detailed
   if (m.includes('http') || m.includes('서버')) return raw;
   if (m.includes('no data') || m.includes('없음')) return '해당 심볼/기간 데이터 없음';
   if (m.includes('parse') || m.includes('파싱')) return '응답 형식 오류';
@@ -944,9 +1242,14 @@ async function renderStockList(targetId, defs, opts = {}) {
       e.stopPropagation();
       const idx = parseInt(e.currentTarget.dataset.del,10);
       const w = getWatch(); w.splice(idx,1); saveWatch(w);
-      renderWatchlist('watchlist',{editable:true});
-      renderWatchlist('watchlist-pm',{editable:false});
-      renderStockList('overnight-stocks', getWatch().map(w=>({sym:w.sym,label:w.label})));
+      // 모든 watchlist 영역(아침·오후·저녁) 동시 갱신
+      if (typeof renderAllWatchlists === 'function') {
+        renderAllWatchlists();
+      } else {
+        renderWatchlist('watchlist',{editable:true});
+        renderWatchlist('watchlist-pm',{editable:true});
+        renderWatchlist('overnight-stocks',{editable:true});
+      }
     }));
   }
 
@@ -963,6 +1266,12 @@ async function renderStockList(targetId, defs, opts = {}) {
       const snap = snapshotFromHistory(hist);
       const cls = changeClass(snap.change);
 
+      // 회사명/지수명을 가져왔으면 라벨 자동 갱신 (persistLabels true일 때만)
+      if (opts.persistLabels && hist.shortName) {
+        const symEl = row.querySelector('.stock-symbol');
+        if (symEl) symEl.textContent = hist.shortName;
+      }
+
       // Sparkline last 30 points
       const recent = hist.slice(-30).map(p => p.close);
       sparkEl.innerHTML = sparkline(recent);
@@ -977,11 +1286,11 @@ async function renderStockList(targetId, defs, opts = {}) {
         <div class="stock-change ${cls}">${changeArrow(snap.change)} ${fmtNum(Math.abs(snap.change))} (${snap.pct.toFixed(2)}%)</div>
         ${staleNote}
       `;
-      snapshotList.push({ sym: defs[i].sym, label: defs[i].label, ...snap });
+      snapshotList.push({ sym: defs[i].sym, label: defs[i].label, shortName: hist.shortName || null, ...snap });
     } else {
       sparkEl.innerHTML = '';
       const reason = res.reason ? explainError(res.reason) : '알 수 없는 오류';
-      priceEl.innerHTML = `<div class="error"><b>실패</b><br>${escapeHtml(reason)}</div>`;
+      priceEl.innerHTML = `<div class="error" style="white-space:normal;word-break:break-word;line-height:1.4;"><b>실패</b><br>${escapeHtml(reason)}</div>`;
     }
   });
   return snapshotList;
@@ -1058,28 +1367,66 @@ async function renderWatchlist(targetId, opts={editable:true}) {
     document.getElementById(targetId).innerHTML = '<div class="loading">관심종목을 추가해 주세요.</div>';
     return [];
   }
-  const snap = await renderStockList(targetId, list.map(w=>({sym:w.sym,label:w.label})), opts);
+  // Editable 메인 watchlist에서는 라벨도 자동 갱신
+  const snap = await renderStockList(
+    targetId,
+    list.map(w=>({sym:w.sym,label:w.label})),
+    { ...opts, persistLabels: !!opts.editable }
+  );
+  // localStorage에 저장된 라벨도 shortName으로 갱신 (다음 새로고침 시 즉시 반영)
+  if (opts.editable && snap && snap.length) {
+    const w = getWatch();
+    let changed = false;
+    snap.forEach(s => {
+      if (s && s.shortName) {
+        const idx = w.findIndex(x => x.sym === s.sym);
+        if (idx >= 0 && w[idx].label !== s.shortName) {
+          w[idx].label = s.shortName;
+          changed = true;
+        }
+      }
+    });
+    if (changed) saveWatch(w);
+  }
   const u = document.getElementById('watchlist-updated');
   if (u && targetId === 'watchlist') u.textContent = `마지막 업데이트: ${fmtClock(new Date())}`;
   return snap;
 }
 
-document.getElementById('add-btn').addEventListener('click', addWatchSymbol);
-document.getElementById('add-symbol').addEventListener('keydown', e => { if (e.key==='Enter') addWatchSymbol(); });
-async function addWatchSymbol() {
-  const input = document.getElementById('add-symbol');
-  const v = (input.value || '').trim();
+/* 3개 영역 (아침·점심·저녁)에서 모두 추가/삭제 가능 + 자동 동기화 */
+async function addWatchSymbolFromInput(inputEl) {
+  if (!inputEl) return;
+  const v = (inputEl.value || '').trim();
   if (!v) return;
   let sym = symbolForYahoo(v);
   const w = getWatch();
-  if (w.find(x => x.sym.toUpperCase() === sym)) { input.value=''; return; }
+  if (w.find(x => x.sym.toUpperCase() === sym)) { inputEl.value=''; return; }
   w.push({ sym, label: sym });
   saveWatch(w);
-  input.value = '';
-  await renderWatchlist('watchlist',{editable:true});
-  await renderWatchlist('watchlist-pm',{editable:false});
-  await renderStockList('overnight-stocks', getWatch().map(w=>({sym:w.sym,label:w.label})));
+  inputEl.value = '';
+  await renderAllWatchlists();
 }
+async function renderAllWatchlists() {
+  // 모든 위치를 editable로 (한 곳에서 변경 시 다른 곳도 즉시 반영)
+  await Promise.all([
+    renderWatchlist('overnight-stocks', { editable: true }),
+    renderWatchlist('watchlist',        { editable: true }),
+    renderWatchlist('watchlist-pm',     { editable: true }),
+  ]);
+}
+
+// 점심·오후 메인 인풋
+document.getElementById('add-btn')?.addEventListener('click', () => addWatchSymbolFromInput(document.getElementById('add-symbol')));
+document.getElementById('add-symbol')?.addEventListener('keydown', e => { if (e.key==='Enter') addWatchSymbolFromInput(document.getElementById('add-symbol')); });
+// 아침 인풋
+document.querySelector('[data-add-target="add-symbol-am"]')?.addEventListener('click', () => addWatchSymbolFromInput(document.getElementById('add-symbol-am')));
+document.getElementById('add-symbol-am')?.addEventListener('keydown', e => { if (e.key==='Enter') addWatchSymbolFromInput(document.getElementById('add-symbol-am')); });
+// 저녁 인풋
+document.querySelector('[data-add-target="add-symbol-pm"]')?.addEventListener('click', () => addWatchSymbolFromInput(document.getElementById('add-symbol-pm')));
+document.getElementById('add-symbol-pm')?.addEventListener('keydown', e => { if (e.key==='Enter') addWatchSymbolFromInput(document.getElementById('add-symbol-pm')); });
+
+// 호환을 위해 이전 함수명도 유지
+async function addWatchSymbol() { return addWatchSymbolFromInput(document.getElementById('add-symbol')); }
 
 /* ---------- News (직접 RSS 가져와 DOMParser로 파싱, CORS 프록시 경유) ---------- */
 /* 각 소스는 fallback URL 배열 — 첫 번째 실패 시 다음으로 자동 시도 */
@@ -1542,6 +1889,9 @@ function cleanupOldKeys(prefix, keepN=14) {
 
 /* ---------- Boot ---------- */
 async function boot() {
+  // 첫 방문 시 닉네임 받기
+  if (!getNickname()) showOnboarding();
+
   updateHeader();
   setInterval(updateHeader, 30 * 1000);
   showMarketBanner();
@@ -1549,6 +1899,7 @@ async function boot() {
   setTab(currentSection());
 
   // Weather
+  renderWeatherSkeleton();
   loadWeather();
 
   // Stocks: render and snapshot
@@ -1556,9 +1907,9 @@ async function boot() {
     renderStockList('us-indices', INDEX_DEFS),
     renderStockList('us-indices-pm', INDEX_DEFS),
     renderStockList('kr-indices', KR_INDEX_DEFS),
-    renderStockList('overnight-stocks', getWatch().map(w=>({sym:w.sym,label:w.label}))),
-    renderWatchlist('watchlist', {editable:true}),
-    renderWatchlist('watchlist-pm', {editable:false})
+    renderWatchlist('overnight-stocks', { editable: true }),
+    renderWatchlist('watchlist',        { editable: true }),
+    renderWatchlist('watchlist-pm',     { editable: true })
   ]).then((results) => {
     const usIdx = results[0]||[], krIdx = results[2]||[], watch1 = results[4]||[];
     saveSnapshot('indices', [...usIdx, ...krIdx]);
