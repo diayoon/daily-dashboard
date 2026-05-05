@@ -1077,12 +1077,12 @@ function symbolForStooq(sym) {
   return upper.toLowerCase() + '.us';
 }
 
-/* CSV 파싱 (Stooq 폴백용) */
+/* CSV 파싱 (Stooq 폴백용) — 헤더에 <> 같은 변형도 처리 */
 function parseStooqCsv(csv) {
   if (!csv || csv.length < 5) return null;
-  const lines = csv.trim().split('\n').filter(Boolean);
+  const lines = csv.trim().split(/\r?\n/).filter(Boolean);
   if (lines.length < 2) return null;
-  const headers = lines[0].split(',').map(s => s.trim().toLowerCase());
+  const headers = lines[0].split(',').map(s => s.trim().toLowerCase().replace(/[<>]/g,''));
   return lines.slice(1).map(line => {
     const cols = line.split(',');
     const o = {}; headers.forEach((h,i) => o[h] = cols[i]); return o;
@@ -1176,6 +1176,8 @@ function _stockRelease() {
 /* 통합: Yahoo 먼저 시도, 실패 시 Stooq 자동 폴백
    동시 요청을 슬롯으로 제한 + 약간의 jitter로 스파이크 방지 */
 async function fetchHistory(symbol, range='3mo') {
+  // 안전장치: 옛날 코드가 days 숫자를 넘기는 경우 기본값 '3mo'로 변환
+  if (typeof range !== 'string') range = '3mo';
   await _stockSlot();
   try {
     // 50–250ms jitter — 같은 시점에 몰리지 않도록
@@ -1262,7 +1264,8 @@ const KR_INDEX_DEFS = [
 const _historyCache = new Map();
 async function getHistory(sym) {
   if (_historyCache.has(sym)) return _historyCache.get(sym);
-  const p = fetchHistory(sym, 95);
+  // 3개월 일봉 — fetchHistory의 range 인자는 문자열 ('3mo' 등)이어야 함
+  const p = fetchHistory(sym, '3mo');
   _historyCache.set(sym, p);
   try { await p; } catch(_) { _historyCache.delete(sym); }
   return p;
