@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>오늘의 디아 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7;
+    --card: #ffffff;
+    --border: #e8e6df;
+    --text: #1f1f1c;
+    --muted: #7a7770;
+    --subtle: #b3b0a8;
+    --accent: #1f1f1c;
+    --good: #2e8a52;
+    --bad: #c5443c;
+    --warn: #c98c2a;
+    --warn-bg: #fff3dc;
+
+    --morning: #ffd9a8;
+    --noon: #b9dabf;
+    --evening: #c4cae8;
+
+    --shadow: 0 1px 3px rgba(20,20,20,0.04), 0 4px 18px rgba(20,20,20,0.04);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  /* Header */
+  header.top {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    flex-wrap: wrap; gap: 12px; margin-bottom: 20px;
+  }
+  .greet { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .greet .emoji { margin-right: 8px; }
+  .date-row {
+    color: var(--muted); font-size: 14px; margin-top: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .clock {
+    font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums;
+    background: var(--card); border: 1px solid var(--border);
+    padding: 8px 14px; border-radius: 999px;
+  }
+
+  .ambient {
+    height: 4px; border-radius: 999px; margin-bottom: 16px;
+    background: linear-gradient(90deg, var(--morning) 0%, var(--noon) 50%, var(--evening) 100%);
+  }
+
+  /* Banner */
+  .banner {
+    background: var(--warn-bg);
+    border: 1px solid #f4d59a;
+    color: #6b4d18;
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; margin-bottom: 16px;
+    display: none;
+  }
+  .banner.show { display: block; }
+  .banner b { color: #4d3712; }
+
+  /* Tabs */
+  .tabs {
+    display: flex; gap: 6px; margin-bottom: 22px;
+    background: var(--card); padding: 6px; border-radius: 14px;
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+    width: fit-content; flex-wrap: wrap;
+  }
+  .tab {
+    border: none; background: transparent;
+    padding: 9px 16px; border-radius: 10px; cursor: pointer;
+    font-size: 14px; font-weight: 500; color: var(--muted);
+    transition: all 0.2s; font-family: inherit;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { background: var(--text); color: white; }
+  .tab .now-dot {
+    display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; background: #ff6b6b;
+    margin-left: 6px; animation: pulse 2s infinite; vertical-align: middle;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Sections */
+  section.panel { display: none; animation: fadeIn 0.3s; }
+  section.panel.active { display: block; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+  .panel-title {
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 24px 0 10px; font-weight: 600;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  }
+  .panel-title:first-child { margin-top: 0; }
+  .panel-title .hint { font-size: 11px; text-transform: none; letter-spacing: 0; color: var(--subtle); font-weight: 400; }
+
+  /* Cards */
+  .grid { display: grid; gap: 14px; }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 760px) { .grid-3, .grid-2 { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow);
+  }
+
+  /* Weather */
+  .weather-card { display: flex; flex-direction: column; gap: 8px; }
+  .weather-card .city { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .weather-card .temp { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+  .weather-card .temp .icon { font-size: 28px; margin-right: 8px; }
+  .weather-card .desc { font-size: 14px; color: var(--text); }
+  .weather-card .meta {
+    font-size: 12px; color: var(--muted);
+    display: flex; gap: 12px; flex-wrap: wrap;
+    padding-top: 8px; border-top: 1px dashed var(--border);
+  }
+
+  /* Stock row */
+  .stock-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0; border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .stock-row:last-child { border-bottom: none; }
+  .stock-row:hover { background: rgba(0,0,0,0.015); }
+  .stock-name { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .stock-symbol { font-weight: 600; font-size: 15px; }
+  .stock-label { font-size: 11px; color: var(--muted); }
+  .stock-spark { flex-shrink: 0; }
+  .stock-price-block { text-align: right; min-width: 110px; flex-shrink: 0; }
+  .stock-price { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stock-change { font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .stock-stale { font-size: 10px; color: var(--warn); margin-top: 2px; }
+  .up { color: var(--bad); }   /* Korean: 빨강=상승 */
+  .down { color: #2563c4; }    /* Korean: 파랑=하락 */
+  .flat { color: var(--muted); }
+
+  /* Expanded chart */
+  .chart-wrap {
+    grid-column: 1 / -1;
+    background: rgba(0,0,0,0.015);
+    border-radius: 12px;
+    padding: 14px 12px 8px;
+    margin: 8px 0 6px;
+    height: 200px;
+    position: relative;
+  }
+  .chart-wrap.hidden { display: none; }
+
+  /* Buttons & inputs */
+  .row-actions {
+    display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; align-items: center;
+  }
+  .add-input {
+    flex: 1; min-width: 180px;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; font-family: inherit; background: var(--bg);
+  }
+  .add-input:focus { outline: 2px solid var(--text); outline-offset: -1px; }
+  .btn {
+    border: 1px solid var(--border); background: var(--card);
+    padding: 8px 14px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; font-family: inherit; color: var(--text); transition: all 0.15s;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--text); color: white; border-color: var(--text); }
+  .btn-primary:hover { background: #333; }
+  .btn-icon {
+    border: none; background: transparent; color: var(--subtle); cursor: pointer;
+    padding: 4px 8px; font-size: 14px; border-radius: 6px; font-family: inherit;
+  }
+  .btn-icon:hover { color: var(--text); background: var(--bg); }
+  .btn-icon.del:hover { color: var(--bad); }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 10px; border-radius: 999px;
+    background: var(--bg); border: 1px solid var(--border);
+    font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
+  }
+  .pill input { margin: 0; }
+
+  /* News */
+  .news-list { list-style: none; padding: 0; margin: 0; }
+  .news-source-tabs {
+    display: flex; gap: 4px; margin-bottom: 10px;
+  }
+  .news-source-tab {
+    border: 1px solid var(--border); background: var(--card);
+    padding: 5px 12px; border-radius: 999px; font-size: 12px;
+    color: var(--muted); cursor: pointer; font-family: inherit;
+  }
+  .news-source-tab.active { background: var(--text); color: white; border-color: var(--text); }
+  .news-item { padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .news-item:last-child { border-bottom: none; }
+  .news-item a {
+    color: var(--text); text-decoration: none; font-size: 14px; line-height: 1.5;
+    display: block;
+  }
+  .news-item a:hover { text-decoration: underline; }
+  .news-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* Routine / checklist */
+  .check-list { list-style: none; padding: 0; margin: 0; }
+  .check-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+    user-select: none;
+  }
+  .check-item:last-child { border-bottom: none; }
+  .check-box {
+    width: 22px; height: 22px; border: 2px solid var(--border);
+    border-radius: 6px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; background: var(--card); cursor: pointer;
+  }
+  .check-item.done .check-box { background: var(--good); border-color: var(--good); }
+  .check-item.done .check-box::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; }
+  .check-label { font-size: 14px; flex: 1; cursor: pointer; }
+  .check-item.done .check-label { color: var(--muted); text-decoration: line-through; }
+  .pin-toggle {
+    border: none; background: transparent; cursor: pointer;
+    padding: 4px 8px; border-radius: 6px; font-size: 14px; color: var(--subtle);
+  }
+  .pin-toggle.pinned { color: var(--warn); }
+  .pin-toggle:hover { background: var(--bg); }
+
+  /* Loading and error */
+  .loading { color: var(--muted); font-size: 13px; padding: 8px 0; }
+  .error { color: var(--bad); font-size: 12px; padding: 4px 0; line-height: 1.5; }
+  .error b { color: var(--bad); }
+  .updated { font-size: 11px; color: var(--subtle); margin-top: 8px; }
+
+  /* Calendar */
+  .cal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 14px;
+  }
+  .cal-title { font-size: 18px; font-weight: 600; }
+  .cal-nav { display: flex; gap: 6px; }
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+  }
+  .cal-cell {
+    aspect-ratio: 1 / 0.95;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 6px 8px;
+    display: flex; flex-direction: column;
+    cursor: pointer; transition: all 0.15s;
+    font-size: 12px; min-height: 60px;
+  }
+  .cal-cell:hover { background: var(--card); border-color: var(--text); }
+  .cal-cell.empty { background: transparent; border-color: transparent; cursor: default; }
+  .cal-cell.empty:hover { background: transparent; border-color: transparent; }
+  .cal-cell.today { border-color: var(--text); border-width: 2px; }
+  .cal-cell.selected { background: var(--text); color: white; }
+  .cal-cell.selected .cal-day-num { color: white; }
+  .cal-day-num { font-weight: 600; color: var(--text); }
+  .cal-cell.future .cal-day-num { color: var(--subtle); font-weight: 400; }
+  .cal-cell.weekend .cal-day-num { color: var(--bad); }
+  .cal-dots { margin-top: auto; display: flex; gap: 3px; flex-wrap: wrap; }
+  .cal-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .cal-dot.weather { background: #ffc36e; }
+  .cal-dot.stock { background: #6ec06e; }
+  .cal-dot.routine { background: #6e9eff; }
+  .cal-dot.done { background: #d96e9b; }
+
+  .cal-weekday-row {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+    margin-bottom: 6px; font-size: 11px; color: var(--muted); text-align: center;
+  }
+  .cal-weekday-row .sun { color: var(--bad); }
+  .cal-weekday-row .sat { color: #2563c4; }
+
+  .cal-detail {
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);
+  }
+  .cal-detail-section {
+    margin-bottom: 14px;
+  }
+  .cal-detail-section h4 {
+    font-size: 12px; color: var(--muted); margin: 0 0 6px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+  }
+  .cal-detail-section .row {
+    font-size: 13px; padding: 4px 0; display: flex; justify-content: space-between;
+  }
+
+  footer {
+    margin-top: 60px; text-align: center; color: var(--subtle); font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="ambient"></div>
+
+  <div class="banner" id="market-banner"></div>
+
+  <header class="top">
+    <div>
+      <div class="greet"><span class="emoji" id="greet-emoji">🌤️</span><span id="greet-text">좋은 하루</span>, 디아</div>
+      <div class="date-row" id="date-row">날짜 불러오는 중…</div>
+    </div>
+    <div class="clock" id="clock">--:--</div>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" data-tab="morning" role="tab">🌅 아침</button>
+    <button class="tab" data-tab="afternoon" role="tab">☀️ 점심·오후</button>
+    <button class="tab" data-tab="evening" role="tab">🌙 저녁</button>
+    <button class="tab" data-tab="calendar" role="tab">📅 기록</button>
+  </div>
+
+  <!-- ======= MORNING ======= -->
+  <section class="panel" id="morning">
+    <div class="panel-title">날씨 <span class="hint">Open-Meteo</span></div>
+    <div class="grid grid-3" id="weather-grid">
+      <div class="card weather-card" data-city="강남구">
+        <div class="city">서울 강남구</div>
+        <div class="loading">불러오는 중…</div>
+      </div>
+      <div class="card weather-card" data-city="송파구">
+        <div class="city">서울 송파구</div>
+        <div class="loading">불러오는 중…</div>
+      </div>
+      <div class="card weather-card" data-city="대전">
+        <div class="city">대전</div>
+        <div class="loading">불러오는 중…</div>
+      </div>
+    </div>
+
+    <div class="panel-title">밤사이 미국장 <span class="hint">행 클릭 → 3개월 차트 펼치기</span></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:500;">미국 지수</div>
+        <div id="us-indices"><div class="loading">불러오는 중…</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:500;">관심종목 (미국)</div>
+        <div id="overnight-stocks"><div class="loading">불러오는 중…</div></div>
+      </div>
+    </div>
+
+    <div class="panel-title">밤사이 미국장 뉴스</div>
+    <div class="card">
+      <div class="news-source-tabs" data-target="overnight-news">
+        <button class="news-source-tab active" data-src="investing-us">Investing.com</button>
+        <button class="news-source-tab" data-src="yahoo-us">Yahoo Finance</button>
+      </div>
+      <ul class="news-list" id="overnight-news">
+        <li class="loading">뉴스 불러오는 중…</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ======= AFTERNOON ======= -->
+  <section class="panel" id="afternoon">
+    <div class="panel-title">한국장 오늘의 주요 이벤트</div>
+    <div class="card">
+      <div id="kr-indices" style="margin-bottom:14px;"><div class="loading">불러오는 중…</div></div>
+      <div class="news-source-tabs" data-target="kr-news">
+        <button class="news-source-tab active" data-src="investing-kr">Investing.com KR</button>
+        <button class="news-source-tab" data-src="yahoo-kr">Yahoo (한국 종목)</button>
+      </div>
+      <ul class="news-list" id="kr-news"><li class="loading">뉴스 불러오는 중…</li></ul>
+    </div>
+
+    <div class="panel-title">내 관심종목 <span class="hint">행 클릭 → 3개월 차트</span></div>
+    <div class="card">
+      <div id="watchlist"><div class="loading">불러오는 중…</div></div>
+      <div class="row-actions">
+        <input class="add-input" id="add-symbol" placeholder="티커 추가 (예: NVDA, MSFT, 005930.kr)">
+        <button class="btn btn-primary" id="add-btn">추가</button>
+      </div>
+      <div class="updated" id="watchlist-updated"></div>
+    </div>
+
+    <div class="panel-title">오늘의 루틴 체크 <span class="hint">📌 = 매일 고정 / 표시 없으면 오늘만</span></div>
+    <div class="card">
+      <ul class="check-list" id="routine-list"></ul>
+      <div class="row-actions">
+        <input class="add-input" id="routine-input" placeholder="새 루틴 추가… (예: 명상 10분)">
+        <label class="pill"><input type="checkbox" id="routine-pin-toggle"> 매일 고정</label>
+        <button class="btn btn-primary" id="routine-add">추가</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= EVENING ======= -->
+  <section class="panel" id="evening">
+    <div class="panel-title">미국장 오픈 후 <span class="hint">행 클릭 → 3개월 차트</span></div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:500;">미국 지수 (실시간)</div>
+        <div id="us-indices-pm"><div class="loading">불러오는 중…</div></div>
+      </div>
+      <div class="card">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:8px;font-weight:500;">관심종목 (실시간)</div>
+        <div id="watchlist-pm"><div class="loading">불러오는 중…</div></div>
+      </div>
+    </div>
+
+    <div class="panel-title">미국장 뉴스</div>
+    <div class="card">
+      <div class="news-source-tabs" data-target="us-pm-news">
+        <button class="news-source-tab active" data-src="investing-us">Investing.com</button>
+        <button class="news-source-tab" data-src="yahoo-us">Yahoo Finance</button>
+      </div>
+      <ul class="news-list" id="us-pm-news"><li class="loading">뉴스 불러오는 중…</li></ul>
+    </div>
+
+    <div class="panel-title">오늘 한 일 (Done List)</div>
+    <div class="card">
+      <ul class="check-list" id="done-list"></ul>
+      <div class="row-actions">
+        <input class="add-input" id="done-input" placeholder="오늘 완료한 일 추가하기…">
+        <button class="btn btn-primary" id="done-add">+</button>
+      </div>
+      <div class="updated" id="done-summary"></div>
+    </div>
+  </section>
+
+  <!-- ======= CALENDAR ======= -->
+  <section class="panel" id="calendar">
+    <div class="card">
+      <div class="cal-header">
+        <div class="cal-title" id="cal-title">2026년 5월</div>
+        <div class="cal-nav">
+          <button class="btn" id="cal-prev">‹ 지난달</button>
+          <button class="btn" id="cal-today">오늘</button>
+          <button class="btn" id="cal-next">다음달 ›</button>
+        </div>
+      </div>
+      <div class="cal-weekday-row">
+        <div class="sun">일</div><div>월</div><div>화</div><div>수</div><div>목</div><div>금</div><div class="sat">토</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+
+      <div class="cal-detail" id="cal-detail">
+        <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">
+          날짜를 클릭하면 그날의 기록을 볼 수 있어요.<br>
+          <span style="font-size:11px;">색 점 — 🟠 날씨 / 🟢 주식 / 🔵 루틴 / 🟣 Done list</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    데이터: Open-Meteo · Stooq · Yahoo Finance RSS · Investing.com RSS<br>
+    모든 데이터는 새로고침 시 최신화됩니다 · 일별 스냅샷은 브라우저(localStorage)에 저장돼요
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   Daily Dashboard v2 - 디아 전용
+   - 시간대 자동 탭 + 캘린더 탭
+   - 차트(3개월) + 스파크라인
+   - Yahoo Finance + Investing.com 뉴스
+   - 휴장/구식데이터 사유 표시
+   - 루틴 핀/추가 시스템
+   - 일별 스냅샷 → 캘린더 조회
+   ========================================================= */
+
+/* ---------- Time helpers ---------- */
+function nowKST() { return new Date(); }
+function fmtClock(d) { return d.toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Seoul' }); }
+function fmtDate(d) { return d.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long', timeZone:'Asia/Seoul' }); }
+function todayKey(d=new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(d);
+  const o = {}; parts.forEach(p => o[p.type] = p.value);
+  return `${o.year}-${o.month}-${o.day}`;
+}
+function dayKeyOf(d) {
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit'}).formatToParts(d);
+  const o = {}; parts.forEach(p => o[p.type] = p.value);
+  return `${o.year}-${o.month}-${o.day}`;
+}
+function kstParts(d=new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false, weekday:'short'});
+  const obj = {}; fmt.formatToParts(d).forEach(p=>obj[p.type]=p.value);
+  return obj;
+}
+function currentSection() {
+  const h = parseInt(new Intl.DateTimeFormat('en-US', { hour:'numeric', hour12:false, timeZone:'Asia/Seoul'}).format(new Date()), 10);
+  if (h >= 5 && h < 12) return 'morning';
+  if (h >= 12 && h < 18) return 'afternoon';
+  return 'evening';
+}
+function greetingFor(s) {
+  if (s === 'morning')   return { e:'🌅', t:'좋은 아침이에요' };
+  if (s === 'afternoon') return { e:'☀️', t:'활기찬 오후예요' };
+  return { e:'🌙', t:'오늘도 수고했어요' };
+}
+function isKoreanWeekend(d=new Date()) {
+  const w = kstParts(d).weekday; // e.g. "Sat"
+  return w === 'Sat' || w === 'Sun';
+}
+function escapeHtml(s) {
+  return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------- Tabs ---------- */
+function setTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+  document.querySelector(`.tab[data-tab="${name}"]`).classList.add('active');
+  if (name === 'calendar') renderCalendar();
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => setTab(t.dataset.tab)));
+
+/* ---------- Header ---------- */
+function updateHeader() {
+  const d = nowKST();
+  const sec = currentSection();
+  document.getElementById('clock').textContent = fmtClock(d);
+  document.getElementById('date-row').textContent = fmtDate(d) + ' · ' + (sec==='morning'?'아침':sec==='afternoon'?'점심·오후':'저녁') + ' 시간대';
+  const g = greetingFor(sec);
+  document.getElementById('greet-emoji').textContent = g.e;
+  document.getElementById('greet-text').textContent = g.t;
+  document.querySelectorAll('.tab').forEach(t => {
+    const dot = t.querySelector('.now-dot');
+    if (t.dataset.tab === sec && !dot) {
+      const span = document.createElement('span'); span.className = 'now-dot'; t.appendChild(span);
+    }
+    if (t.dataset.tab !== sec && dot) dot.remove();
+  });
+}
+
+/* ---------- Market closed banner ---------- */
+function showMarketBanner() {
+  const banner = document.getElementById('market-banner');
+  const messages = [];
+
+  // 1) file:// 감지 → Safari에서 CORS 막힘
+  if (location.protocol === 'file:') {
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    if (isSafari) {
+      messages.push(`<b>⚠️ Safari + 로컬 파일 안내:</b> Safari는 로컬 HTML(\`file://\`)에서 외부 데이터 가져오기를 차단해요. 같은 폴더의 <code>start-dashboard.command</code>를 더블클릭하시면 자동으로 로컬 서버가 열리고 데이터가 정상 표시돼요. (또는 Chrome으로 열기)`);
+    } else {
+      messages.push(`<b>로컬 파일 모드:</b> 일부 브라우저는 file://에서 외부 호출을 막아요. 데이터가 안 보이면 <code>start-dashboard.command</code>를 더블클릭해서 로컬 서버로 열어주세요.`);
+    }
+  }
+
+  // 2) 주말/휴장
+  if (isKoreanWeekend()) {
+    messages.push(`<b>주말 안내:</b> 한·미 증시 모두 휴장이에요. 모든 주가는 가장 최근 거래일(금요일) 종가 기준이에요.`);
+  }
+
+  if (messages.length > 0) {
+    banner.innerHTML = messages.join('<br><br>');
+    banner.classList.add('show');
+  } else {
+    banner.classList.remove('show');
+  }
+}
+
+/* ---------- Weather (Open-Meteo, no key) ---------- */
+const CITIES = [
+  { id:'강남구', name:'서울 강남구', lat:37.5172, lon:127.0473 },
+  { id:'송파구', name:'서울 송파구', lat:37.5145, lon:127.1059 },
+  { id:'대전',   name:'대전',         lat:36.3504, lon:127.3845 }
+];
+function weatherCodeToText(c) {
+  if (c === 0) return { icon:'☀️', text:'맑음' };
+  if ([1,2].includes(c)) return { icon:'🌤️', text:'대체로 맑음' };
+  if (c === 3) return { icon:'☁️', text:'흐림' };
+  if ([45,48].includes(c)) return { icon:'🌫️', text:'안개' };
+  if ([51,53,55].includes(c)) return { icon:'🌦️', text:'이슬비' };
+  if ([61,63,65].includes(c)) return { icon:'🌧️', text:'비' };
+  if ([71,73,75,77].includes(c)) return { icon:'🌨️', text:'눈' };
+  if ([80,81,82].includes(c)) return { icon:'🌧️', text:'소나기' };
+  if ([85,86].includes(c)) return { icon:'🌨️', text:'눈 소나기' };
+  if ([95,96,99].includes(c)) return { icon:'⛈️', text:'천둥번개' };
+  return { icon:'🌥️', text:'-' };
+}
+async function loadWeather() {
+  const snapshot = [];
+  for (const city of CITIES) {
+    const card = document.querySelector(`.weather-card[data-city="${city.id}"]`);
+    try {
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,apparent_temperature,weather_code,relative_humidity_2m,wind_speed_10m,precipitation&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FSeoul&forecast_days=1`;
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`서버 응답 ${r.status}`);
+      const j = await r.json();
+      const cur = j.current || {}; const dly = j.daily || {};
+      const wc = weatherCodeToText(cur.weather_code);
+      const tmax = Math.round((dly.temperature_2m_max||[])[0]);
+      const tmin = Math.round((dly.temperature_2m_min||[])[0]);
+      const pp   = (dly.precipitation_probability_max||[])[0];
+      card.innerHTML = `
+        <div class="city">${city.name}</div>
+        <div class="temp"><span class="icon">${wc.icon}</span>${Math.round(cur.temperature_2m)}°</div>
+        <div class="desc">${wc.text} · 체감 ${Math.round(cur.apparent_temperature)}°</div>
+        <div class="meta">
+          <span>최고 ${tmax}°</span><span>최저 ${tmin}°</span>
+          <span>💧 ${pp ?? '-'}%</span>
+          <span>💨 ${Math.round(cur.wind_speed_10m)}km/h</span>
+          <span>🌫️ 습도 ${cur.relative_humidity_2m}%</span>
+        </div>
+      `;
+      snapshot.push({ city: city.id, name: city.name, temp: Math.round(cur.temperature_2m), feels: Math.round(cur.apparent_temperature), code: cur.weather_code, codeText: wc.text, icon: wc.icon, max: tmax, min: tmin, pp });
+    } catch(e) {
+      card.innerHTML = `<div class="city">${city.name}</div><div class="error"><b>날씨 불러오기 실패</b><br>사유: ${escapeHtml(explainError(e))}</div>`;
+    }
+  }
+  saveSnapshot('weather', snapshot);
+}
+
+/* ---------- CORS proxy helper ---------- */
+/* Stooq doesn't allow CORS from file:// or some origins, so we route through public CORS proxies.
+   Order: corsproxy.io → allorigins → direct (as last resort). */
+const CORS_PROXIES = [
+  { name: 'corsproxy.io', wrap: (u) => `https://corsproxy.io/?${encodeURIComponent(u)}` },
+  { name: 'allorigins',   wrap: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}` },
+  { name: 'direct',       wrap: (u) => u }
+];
+async function fetchViaProxies(url, opts={}) {
+  const errors = [];
+  for (const p of CORS_PROXIES) {
+    try {
+      const r = await fetch(p.wrap(url), opts);
+      if (!r.ok) { errors.push(`${p.name}: HTTP ${r.status}`); continue; }
+      return r;
+    } catch(e) {
+      errors.push(`${p.name}: ${e.message || e}`);
+      continue;
+    }
+  }
+  throw new Error('모든 경로 실패 — ' + errors.join(' / '));
+}
+
+/* ---------- Stocks (Stooq CSV) ---------- */
+function parseStooqCsv(csv) {
+  if (!csv || csv.length < 5) return null;
+  const lines = csv.trim().split('\n').filter(Boolean);
+  if (lines.length < 2) return null;
+  const headers = lines[0].split(',').map(s => s.trim().toLowerCase());
+  const rows = lines.slice(1).map(line => {
+    const cols = line.split(',');
+    const o = {}; headers.forEach((h,i) => o[h] = cols[i]); return o;
+  });
+  return rows;
+}
+
+/* fetchHistory: 3개월(default) daily history. Returns array of {date, close} */
+async function fetchHistory(symbol, days=95) {
+  const today = new Date();
+  const past = new Date(today.getTime() - days*24*60*60*1000);
+  const fmt = d => {
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+    return `${y}${m}${dd}`;
+  };
+  const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(symbol)}&i=d&d1=${fmt(past)}&d2=${fmt(today)}`;
+  const r = await fetchViaProxies(url);
+  const csv = await r.text();
+  if (csv.toLowerCase().includes('no data') || csv.length < 30) {
+    throw new Error('해당 심볼 데이터 없음 (Stooq 미지원 가능)');
+  }
+  const rows = parseStooqCsv(csv);
+  if (!rows) throw new Error('CSV 파싱 실패');
+  const points = rows.map(x => ({ date: x.date, close: parseFloat(x.close) }))
+    .filter(x => !isNaN(x.close));
+  if (points.length === 0) throw new Error('유효한 거래일 없음 (휴장 가능)');
+  return points;
+}
+
+/* From history we derive snapshot (latest + previous close + change) */
+function snapshotFromHistory(history) {
+  const last = history[history.length - 1];
+  const prev = history[history.length - 2] || history[history.length - 1];
+  const change = last.close - prev.close;
+  const pct = prev.close ? (change / prev.close) * 100 : 0;
+  return { date: last.date, close: last.close, prev: prev.close, change, pct };
+}
+
+function fmtNum(n, digits=2) {
+  if (n === null || n === undefined || isNaN(n)) return '-';
+  return n.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+}
+function changeClass(c) { return c>0?'up':c<0?'down':'flat'; }
+function changeArrow(c) { return c>0?'▲':c<0?'▼':'–'; }
+
+function explainError(e) {
+  const raw = (e && e.message || String(e));
+  const m = raw.toLowerCase();
+  if (m.includes('load failed')) return 'Safari가 요청 차단 (CORS) — 프록시까지 실패';
+  if (m.includes('failed to fetch') || m.includes('networkerror')) return '네트워크 오류 또는 CORS 차단 (인터넷/방화벽 확인)';
+  if (m.includes('모든 경로 실패')) return raw; // already detailed
+  if (m.includes('http') || m.includes('서버')) return raw;
+  if (m.includes('no data') || m.includes('없음')) return '해당 심볼/기간 데이터 없음';
+  if (m.includes('parse') || m.includes('파싱')) return '응답 형식 오류';
+  return raw || '알 수 없는 오류';
+}
+
+/* SVG sparkline */
+function sparkline(values, width=64, height=22) {
+  if (!values || values.length < 2) return '';
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = max - min || 1;
+  const step = width / (values.length - 1);
+  const points = values.map((v,i) => `${(i*step).toFixed(1)},${(height - ((v-min)/range)*height).toFixed(1)}`).join(' ');
+  const isUp = values[values.length-1] >= values[0];
+  const color = isUp ? '#c5443c' : '#2563c4';
+  return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" class="spark">
+    <polyline fill="none" stroke="${color}" stroke-width="1.5" points="${points}"/>
+  </svg>`;
+}
+
+/* Render generic stock list with row-click chart expansion */
+const INDEX_DEFS = [
+  { sym:'^spx', label:'S&P 500' },
+  { sym:'^ndx', label:'NASDAQ 100' },
+  { sym:'^dji', label:'Dow Jones' }
+];
+const KR_INDEX_DEFS = [
+  { sym:'^kospi',  label:'KOSPI'  },
+  { sym:'^kosdaq', label:'KOSDAQ' }
+];
+
+const _historyCache = new Map();
+async function getHistory(sym) {
+  if (_historyCache.has(sym)) return _historyCache.get(sym);
+  const p = fetchHistory(sym, 95);
+  _historyCache.set(sym, p);
+  try { await p; } catch(_) { _historyCache.delete(sym); }
+  return p;
+}
+
+async function renderStockList(targetId, defs, opts = {}) {
+  const target = document.getElementById(targetId);
+  target.innerHTML = '';
+
+  // Build skeleton rows
+  defs.forEach((d, i) => {
+    const row = document.createElement('div');
+    row.className = 'stock-row';
+    row.dataset.sym = d.sym;
+    row.dataset.label = d.label;
+    row.innerHTML = `
+      <div class="stock-name">
+        <div class="stock-symbol">${escapeHtml(d.label)}</div>
+        <div class="stock-label">${escapeHtml(d.sym.toUpperCase())}</div>
+      </div>
+      <div class="stock-spark"><span style="color:var(--subtle);font-size:11px">…</span></div>
+      <div class="stock-price-block"><div class="loading">…</div></div>
+      ${opts.editable ? `<button class="btn-icon del" data-del="${i}" title="삭제">✕</button>` : ''}
+    `;
+    target.appendChild(row);
+    // Chart container right after each row
+    const chart = document.createElement('div');
+    chart.className = 'chart-wrap hidden';
+    chart.dataset.sym = d.sym;
+    chart.innerHTML = `<canvas></canvas>`;
+    target.appendChild(chart);
+
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('[data-del]')) return;
+      toggleChart(row, chart);
+    });
+  });
+
+  if (opts.editable) {
+    target.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(e.currentTarget.dataset.del,10);
+      const w = getWatch(); w.splice(idx,1); saveWatch(w);
+      renderWatchlist('watchlist',{editable:true});
+      renderWatchlist('watchlist-pm',{editable:false});
+      renderStockList('overnight-stocks', getWatch().map(w=>({sym:w.sym,label:w.label})));
+    }));
+  }
+
+  const snapshotList = [];
+  // Fetch concurrently
+  const results = await Promise.allSettled(defs.map(d => getHistory(d.sym)));
+  results.forEach((res, i) => {
+    const row = target.querySelectorAll('.stock-row')[i];
+    if (!row) return;
+    const sparkEl = row.querySelector('.stock-spark');
+    const priceEl = row.querySelector('.stock-price-block');
+    if (res.status === 'fulfilled' && res.value && res.value.length > 0) {
+      const hist = res.value;
+      const snap = snapshotFromHistory(hist);
+      const cls = changeClass(snap.change);
+
+      // Sparkline last 30 points
+      const recent = hist.slice(-30).map(p => p.close);
+      sparkEl.innerHTML = sparkline(recent);
+
+      // Stale data check: latest data date vs today (KST)
+      const today = todayKey();
+      const isStale = snap.date < today;
+      const staleNote = isStale ? `<div class="stock-stale">최근 거래일 ${snap.date} (휴장/장마감)</div>` : '';
+
+      priceEl.innerHTML = `
+        <div class="stock-price">${fmtNum(snap.close)}</div>
+        <div class="stock-change ${cls}">${changeArrow(snap.change)} ${fmtNum(Math.abs(snap.change))} (${snap.pct.toFixed(2)}%)</div>
+        ${staleNote}
+      `;
+      snapshotList.push({ sym: defs[i].sym, label: defs[i].label, ...snap });
+    } else {
+      sparkEl.innerHTML = '';
+      const reason = res.reason ? explainError(res.reason) : '알 수 없는 오류';
+      priceEl.innerHTML = `<div class="error"><b>실패</b><br>${escapeHtml(reason)}</div>`;
+    }
+  });
+  return snapshotList;
+}
+
+const _chartInstances = new Map();
+async function toggleChart(rowEl, chartEl) {
+  const sym = rowEl.dataset.sym;
+  if (!chartEl.classList.contains('hidden')) {
+    chartEl.classList.add('hidden');
+    return;
+  }
+  // Show
+  chartEl.classList.remove('hidden');
+  if (_chartInstances.has(sym)) return;
+  try {
+    const hist = await getHistory(sym);
+    const canvas = chartEl.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    const labels = hist.map(p => p.date);
+    const data = hist.map(p => p.close);
+    const isUp = data[data.length-1] >= data[0];
+    const color = isUp ? '#c5443c' : '#2563c4';
+    const fill = isUp ? 'rgba(197,68,60,0.08)' : 'rgba(37,99,196,0.08)';
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ data, borderColor: color, backgroundColor: fill, borderWidth: 1.6, tension: 0.2, pointRadius: 0, fill: true }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: {display:false}, tooltip: { callbacks: { title: (it) => it[0].label, label: (it) => fmtNum(it.parsed.y) } } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 6, color: '#888', font:{size:10} }, grid: { display:false } },
+          y: { ticks: { color: '#888', font:{size:10}, callback: (v)=>fmtNum(v,0) }, grid: { color:'#eee' } }
+        }
+      }
+    });
+    _chartInstances.set(sym, chart);
+  } catch(e) {
+    chartEl.innerHTML = `<div class="error" style="padding:20px;text-align:center"><b>차트 불러오기 실패</b><br>사유: ${escapeHtml(explainError(e))}</div>`;
+  }
+}
+
+/* ---------- Watchlist ---------- */
+const DEFAULT_WATCH = [
+  { sym:'qqq.us',  label:'QQQ' },
+  { sym:'tsla.us', label:'테슬라' },
+  { sym:'aapl.us', label:'애플' }
+];
+function getWatch() {
+  try { const raw = localStorage.getItem('watchlist'); if (raw) return JSON.parse(raw); } catch(_){}
+  return [...DEFAULT_WATCH];
+}
+function saveWatch(list) { localStorage.setItem('watchlist', JSON.stringify(list)); }
+
+async function renderWatchlist(targetId, opts={editable:true}) {
+  const list = getWatch();
+  if (list.length === 0) {
+    document.getElementById(targetId).innerHTML = '<div class="loading">관심종목을 추가해 주세요.</div>';
+    return [];
+  }
+  const snap = await renderStockList(targetId, list.map(w=>({sym:w.sym,label:w.label})), opts);
+  const u = document.getElementById('watchlist-updated');
+  if (u && targetId === 'watchlist') u.textContent = `마지막 업데이트: ${fmtClock(new Date())}`;
+  return snap;
+}
+
+document.getElementById('add-btn').addEventListener('click', addWatchSymbol);
+document.getElementById('add-symbol').addEventListener('keydown', e => { if (e.key==='Enter') addWatchSymbol(); });
+async function addWatchSymbol() {
+  const input = document.getElementById('add-symbol');
+  const v = (input.value || '').trim().toLowerCase();
+  if (!v) return;
+  let sym = v;
+  if (!sym.includes('.')) sym = sym + '.us';
+  const w = getWatch();
+  if (w.find(x => x.sym === sym)) { input.value=''; return; }
+  w.push({ sym, label: v.toUpperCase() });
+  saveWatch(w);
+  input.value = '';
+  await renderWatchlist('watchlist',{editable:true});
+  await renderWatchlist('watchlist-pm',{editable:false});
+  await renderStockList('overnight-stocks', getWatch().map(w=>({sym:w.sym,label:w.label})));
+}
+
+/* ---------- News (rss2json proxy → Investing.com / Yahoo Finance) ---------- */
+const NEWS_FEEDS = {
+  'investing-us': { rss: 'https://www.investing.com/rss/news_25.rss',  label: 'Investing.com 미국증시' },
+  'yahoo-us':     { rss: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC,^IXIC,AAPL,TSLA,QQQ&region=US&lang=en-US', label: 'Yahoo Finance 미국' },
+  'investing-kr': { rss: 'https://kr.investing.com/rss/news.rss',      label: 'Investing.com 한국' },
+  'yahoo-kr':     { rss: 'https://feeds.finance.yahoo.com/rss/2.0/headline?s=005930.KS,000660.KS&region=US&lang=en-US', label: 'Yahoo Finance KR (삼성/SK하이닉스)' }
+};
+async function fetchNewsFromSource(sourceKey, max=8) {
+  const def = NEWS_FEEDS[sourceKey];
+  if (!def) throw new Error('알 수 없는 소스');
+  const url = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(def.rss)}&count=${max}`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`rss2json HTTP ${r.status}`);
+  const j = await r.json();
+  if (j.status !== 'ok') throw new Error(`rss2json 응답: ${j.message || j.status}`);
+  if (!j.items || j.items.length === 0) throw new Error('빈 피드 (소스 일시 장애 가능)');
+  return j.items;
+}
+function renderNewsList(targetUlId, items) {
+  const ul = document.getElementById(targetUlId);
+  ul.innerHTML = '';
+  if (!items || items.length === 0) {
+    ul.innerHTML = '<li class="news-item"><div class="loading">표시할 뉴스가 없어요.</div></li>'; return;
+  }
+  items.forEach(it => {
+    const li = document.createElement('li');
+    li.className = 'news-item';
+    const date = it.pubDate ? new Date(it.pubDate) : null;
+    const dateStr = date ? date.toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'Asia/Seoul'}) : '';
+    li.innerHTML = `
+      <a href="${escapeHtml(it.link)}" target="_blank" rel="noopener">${escapeHtml(it.title)}</a>
+      <div class="news-meta">${escapeHtml(it.author || '')} ${date ? '· '+dateStr : ''}</div>
+    `;
+    ul.appendChild(li);
+  });
+}
+async function loadNews(targetUlId, sourceKey) {
+  const ul = document.getElementById(targetUlId);
+  ul.innerHTML = '<li class="loading">불러오는 중…</li>';
+  try {
+    const items = await fetchNewsFromSource(sourceKey);
+    renderNewsList(targetUlId, items);
+  } catch(e) {
+    ul.innerHTML = `<li class="error" style="padding:8px 0;"><b>뉴스 불러오기 실패</b> (${escapeHtml(NEWS_FEEDS[sourceKey]?.label||sourceKey)})<br>사유: ${escapeHtml(explainError(e))}<br><span style="color:var(--muted);font-size:11px;">다른 소스 탭을 눌러 시도해 보세요.</span></li>`;
+  }
+}
+// wire up news source tabs
+document.querySelectorAll('.news-source-tabs').forEach(group => {
+  const target = group.dataset.target;
+  group.querySelectorAll('.news-source-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      group.querySelectorAll('.news-source-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadNews(target, btn.dataset.src);
+    });
+  });
+});
+
+/* ---------- Routine system (with pin/template) ---------- */
+const DEFAULT_PINNED = [
+  { id:'def-water',    label:'음수 (물 마시기)' },
+  { id:'def-vitamin',  label:'영양제 챙기기' },
+  { id:'def-stretch',  label:'스트레칭' }
+];
+function uid() { return 'r-' + Math.random().toString(36).slice(2,9); }
+function getRoutineTemplate() {
+  try { const raw = localStorage.getItem('routine_template'); if (raw) return JSON.parse(raw); } catch(_){}
+  // Initialize with defaults on first run
+  localStorage.setItem('routine_template', JSON.stringify(DEFAULT_PINNED));
+  return [...DEFAULT_PINNED];
+}
+function saveRoutineTemplate(arr) { localStorage.setItem('routine_template', JSON.stringify(arr)); }
+
+function getTodayRoutines() {
+  const key = 'routine_' + todayKey();
+  let today = [];
+  try { const raw = localStorage.getItem(key); if (raw) today = JSON.parse(raw); } catch(_){}
+  // Merge in template items missing today
+  const tmpl = getRoutineTemplate();
+  tmpl.forEach(t => {
+    if (!today.find(x => x.id === t.id)) {
+      today.push({ id: t.id, label: t.label, done: false, pinned: true });
+    } else {
+      today = today.map(x => x.id === t.id ? { ...x, pinned: true } : x);
+    }
+  });
+  // Mark unpinned correctly
+  today = today.map(x => ({ ...x, pinned: !!tmpl.find(t => t.id === x.id) }));
+  localStorage.setItem(key, JSON.stringify(today));
+  cleanupOldKeys('routine_');
+  return today;
+}
+function saveTodayRoutines(arr) {
+  localStorage.setItem('routine_' + todayKey(), JSON.stringify(arr));
+}
+function renderRoutines() {
+  const ul = document.getElementById('routine-list');
+  const items = getTodayRoutines();
+  ul.innerHTML = '';
+  if (items.length === 0) {
+    ul.innerHTML = '<li style="padding:10px 0;color:var(--muted);font-size:13px;">아직 루틴이 없어요. 아래에서 추가해 보세요.</li>';
+    return;
+  }
+  items.forEach((it) => {
+    const li = document.createElement('li');
+    li.className = 'check-item' + (it.done ? ' done' : '');
+    li.innerHTML = `
+      <div class="check-box"></div>
+      <div class="check-label">${escapeHtml(it.label)}</div>
+      <button class="pin-toggle ${it.pinned?'pinned':''}" title="${it.pinned?'고정 해제':'매일 고정'}">${it.pinned?'📌':'📍'}</button>
+      <button class="btn-icon del" title="삭제">✕</button>
+    `;
+    li.querySelector('.check-box').addEventListener('click', () => {
+      const arr = getTodayRoutines();
+      const idx = arr.findIndex(x => x.id === it.id);
+      if (idx>=0) { arr[idx].done = !arr[idx].done; saveTodayRoutines(arr); renderRoutines(); }
+    });
+    li.querySelector('.check-label').addEventListener('click', () => {
+      li.querySelector('.check-box').click();
+    });
+    li.querySelector('.pin-toggle').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tmpl = getRoutineTemplate();
+      if (it.pinned) {
+        // unpin: remove from template (today's instance stays for today)
+        const next = tmpl.filter(t => t.id !== it.id);
+        saveRoutineTemplate(next);
+      } else {
+        // pin: add to template
+        if (!tmpl.find(t => t.id === it.id)) tmpl.push({ id: it.id, label: it.label });
+        saveRoutineTemplate(tmpl);
+      }
+      // Update today instance pinned flag
+      const arr = getTodayRoutines();
+      saveTodayRoutines(arr);
+      renderRoutines();
+    });
+    li.querySelector('.btn-icon.del').addEventListener('click', (e) => {
+      e.stopPropagation();
+      // Remove from today; if pinned, also remove from template
+      const arr = getTodayRoutines().filter(x => x.id !== it.id);
+      saveTodayRoutines(arr);
+      if (it.pinned) {
+        const tmpl = getRoutineTemplate().filter(t => t.id !== it.id);
+        saveRoutineTemplate(tmpl);
+      }
+      renderRoutines();
+    });
+    ul.appendChild(li);
+  });
+}
+document.getElementById('routine-add').addEventListener('click', addRoutine);
+document.getElementById('routine-input').addEventListener('keydown', e => { if (e.key==='Enter') addRoutine(); });
+function addRoutine() {
+  const input = document.getElementById('routine-input');
+  const pinChk = document.getElementById('routine-pin-toggle');
+  const v = (input.value||'').trim();
+  if (!v) return;
+  const id = uid();
+  const arr = getTodayRoutines();
+  arr.push({ id, label: v, done: false, pinned: pinChk.checked });
+  saveTodayRoutines(arr);
+  if (pinChk.checked) {
+    const tmpl = getRoutineTemplate();
+    tmpl.push({ id, label: v });
+    saveRoutineTemplate(tmpl);
+  }
+  input.value = ''; pinChk.checked = false;
+  renderRoutines();
+}
+
+/* ---------- Done list ---------- */
+function getDoneList() {
+  const key = 'done_' + todayKey();
+  try { const raw = localStorage.getItem(key); if (raw) return JSON.parse(raw); } catch(_){}
+  cleanupOldKeys('done_'); return [];
+}
+function saveDoneList(arr) { localStorage.setItem('done_' + todayKey(), JSON.stringify(arr)); }
+function renderDoneList() {
+  const ul = document.getElementById('done-list');
+  const arr = getDoneList(); ul.innerHTML = '';
+  if (arr.length === 0) {
+    ul.innerHTML = '<li style="padding:10px 0;color:var(--muted);font-size:13px;">아직 추가된 일이 없어요. 오늘 끝낸 일을 적어보세요 ✨</li>';
+  } else {
+    arr.forEach((item, i) => {
+      const li = document.createElement('li');
+      li.className = 'check-item done';
+      li.innerHTML = `<div class="check-box"></div><div class="check-label">${escapeHtml(item.text)}</div><button class="btn-icon del" title="삭제">✕</button>`;
+      li.querySelector('.btn-icon').addEventListener('click', () => {
+        const cur = getDoneList(); cur.splice(i,1); saveDoneList(cur); renderDoneList();
+      });
+      ul.appendChild(li);
+    });
+  }
+  document.getElementById('done-summary').textContent = arr.length ? `오늘 ${arr.length}개 완료 · 멋져요 🙌` : '';
+}
+document.getElementById('done-add').addEventListener('click', addDone);
+document.getElementById('done-input').addEventListener('keydown', e => { if (e.key==='Enter') addDone(); });
+function addDone() {
+  const input = document.getElementById('done-input');
+  const v = (input.value||'').trim(); if (!v) return;
+  const arr = getDoneList(); arr.push({ text: v, t: Date.now() });
+  saveDoneList(arr); input.value = ''; renderDoneList();
+}
+
+/* ---------- Snapshot system ---------- */
+function getSnapshot(dayKey=todayKey()) {
+  try { const raw = localStorage.getItem('snapshot_'+dayKey); if (raw) return JSON.parse(raw); } catch(_){}
+  return null;
+}
+function saveSnapshot(field, data) {
+  const k = todayKey();
+  const cur = getSnapshot(k) || { savedAt: 0 };
+  cur[field] = data; cur.savedAt = Date.now();
+  localStorage.setItem('snapshot_'+k, JSON.stringify(cur));
+  cleanupOldKeys('snapshot_', 90);
+}
+
+/* ---------- Calendar ---------- */
+let calMonth = new Date(); // first day of currently shown month
+calMonth.setDate(1);
+let calSelected = todayKey();
+
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
+  const title = document.getElementById('cal-title');
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  title.textContent = `${y}년 ${m+1}월`;
+  grid.innerHTML = '';
+  const firstWeekday = new Date(y,m,1).getDay(); // 0=Sun
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  for (let i=0;i<firstWeekday;i++) {
+    const c = document.createElement('div'); c.className='cal-cell empty'; grid.appendChild(c);
+  }
+  const today = todayKey();
+  for (let d=1; d<=daysInMonth; d++) {
+    const dt = new Date(y,m,d);
+    const key = dayKeyOf(dt);
+    const cell = document.createElement('div');
+    cell.className = 'cal-cell';
+    const w = dt.getDay();
+    if (w === 0) cell.classList.add('weekend');
+    if (w === 6) cell.classList.add('weekend');
+    if (key === today) cell.classList.add('today');
+    if (key > today) cell.classList.add('future');
+    if (key === calSelected) cell.classList.add('selected');
+    const snap = getSnapshot(key);
+    const routine = (() => { try { return JSON.parse(localStorage.getItem('routine_'+key)||'null'); } catch(_) { return null; }})();
+    const done = (() => { try { return JSON.parse(localStorage.getItem('done_'+key)||'null'); } catch(_) { return null; }})();
+    const dots = [];
+    if (snap?.weather) dots.push('weather');
+    if (snap?.indices || snap?.watchlist) dots.push('stock');
+    if (routine && routine.some(r => r.done)) dots.push('routine');
+    if (done && done.length > 0) dots.push('done');
+    cell.innerHTML = `
+      <div class="cal-day-num">${d}</div>
+      <div class="cal-dots">${dots.map(t => `<span class="cal-dot ${t}"></span>`).join('')}</div>
+    `;
+    cell.addEventListener('click', () => {
+      calSelected = key;
+      renderCalendar();
+      renderCalDetail(key);
+    });
+    grid.appendChild(cell);
+  }
+  renderCalDetail(calSelected);
+}
+
+function renderCalDetail(key) {
+  const root = document.getElementById('cal-detail');
+  const snap = getSnapshot(key);
+  let routine = null, done = null;
+  try { routine = JSON.parse(localStorage.getItem('routine_'+key)||'null'); } catch(_){}
+  try { done = JSON.parse(localStorage.getItem('done_'+key)||'null'); } catch(_){}
+
+  const dt = new Date(key + 'T00:00:00');
+  const dateLabel = dt.toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+  const isToday = key === todayKey();
+
+  let html = `<div style="font-size:15px;font-weight:600;margin-bottom:14px;">${escapeHtml(dateLabel)}${isToday?' <span style="font-size:11px;color:var(--bad);font-weight:400;margin-left:6px;">· 오늘</span>':''}</div>`;
+
+  if (!snap && !routine && !done) {
+    html += `<div style="color:var(--muted);font-size:13px;">이 날의 기록이 없어요. ${key > todayKey() ? '아직 오지 않은 날이에요.' : '대시보드에 접속하지 않은 날일 수 있어요.'}</div>`;
+    root.innerHTML = html;
+    return;
+  }
+
+  if (snap?.weather && snap.weather.length) {
+    html += `<div class="cal-detail-section"><h4>날씨</h4>`;
+    snap.weather.forEach(w => {
+      html += `<div class="row"><span>${escapeHtml(w.icon)} ${escapeHtml(w.name)}</span><span>${w.temp}° (${escapeHtml(w.codeText)}) · 최고 ${w.max}° / 최저 ${w.min}°</span></div>`;
+    });
+    html += `</div>`;
+  }
+  if (snap?.indices && snap.indices.length) {
+    html += `<div class="cal-detail-section"><h4>지수</h4>`;
+    snap.indices.forEach(s => {
+      const cls = changeClass(s.change);
+      html += `<div class="row"><span>${escapeHtml(s.label)}</span><span class="${cls}">${fmtNum(s.close)} (${s.pct.toFixed(2)}%)</span></div>`;
+    });
+    html += `</div>`;
+  }
+  if (snap?.watchlist && snap.watchlist.length) {
+    html += `<div class="cal-detail-section"><h4>관심종목</h4>`;
+    snap.watchlist.forEach(s => {
+      const cls = changeClass(s.change);
+      html += `<div class="row"><span>${escapeHtml(s.label)}</span><span class="${cls}">${fmtNum(s.close)} (${s.pct.toFixed(2)}%)</span></div>`;
+    });
+    html += `</div>`;
+  }
+  if (routine && routine.length) {
+    const doneCount = routine.filter(r => r.done).length;
+    html += `<div class="cal-detail-section"><h4>루틴 ${doneCount}/${routine.length} 완료</h4>`;
+    routine.forEach(r => {
+      html += `<div class="row"><span>${r.done?'✓':'·'} ${escapeHtml(r.label)}</span><span style="color:var(--subtle);font-size:11px;">${r.pinned?'📌':''}</span></div>`;
+    });
+    html += `</div>`;
+  }
+  if (done && done.length) {
+    html += `<div class="cal-detail-section"><h4>Done list (${done.length})</h4>`;
+    done.forEach(d => {
+      html += `<div class="row"><span>✓ ${escapeHtml(d.text)}</span></div>`;
+    });
+    html += `</div>`;
+  }
+  root.innerHTML = html;
+}
+
+document.getElementById('cal-prev').addEventListener('click', () => {
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth()-1, 1);
+  renderCalendar();
+});
+document.getElementById('cal-next').addEventListener('click', () => {
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth()+1, 1);
+  renderCalendar();
+});
+document.getElementById('cal-today').addEventListener('click', () => {
+  calMonth = new Date(); calMonth.setDate(1);
+  calSelected = todayKey();
+  renderCalendar();
+});
+
+/* ---------- Cleanup old localStorage keys ---------- */
+function cleanupOldKeys(prefix, keepN=14) {
+  try {
+    const today = todayKey();
+    const keys = [];
+    for (let i=0;i<localStorage.length;i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) keys.push(k);
+    }
+    keys.sort();
+    while (keys.length > keepN) {
+      const k = keys.shift();
+      if (k !== prefix + today) localStorage.removeItem(k);
+    }
+  } catch(_){}
+}
+
+/* ---------- Boot ---------- */
+async function boot() {
+  updateHeader();
+  setInterval(updateHeader, 30 * 1000);
+  showMarketBanner();
+
+  setTab(currentSection());
+
+  // Weather
+  loadWeather();
+
+  // Stocks: render and snapshot
+  Promise.all([
+    renderStockList('us-indices', INDEX_DEFS),
+    renderStockList('us-indices-pm', INDEX_DEFS),
+    renderStockList('kr-indices', KR_INDEX_DEFS),
+    renderStockList('overnight-stocks', getWatch().map(w=>({sym:w.sym,label:w.label}))),
+    renderWatchlist('watchlist', {editable:true}),
+    renderWatchlist('watchlist-pm', {editable:false})
+  ]).then((results) => {
+    const usIdx = results[0]||[], krIdx = results[2]||[], watch1 = results[4]||[];
+    saveSnapshot('indices', [...usIdx, ...krIdx]);
+    saveSnapshot('watchlist', watch1);
+  });
+
+  // News (default sources)
+  loadNews('overnight-news', 'investing-us');
+  loadNews('kr-news',        'investing-kr');
+  loadNews('us-pm-news',     'investing-us');
+
+  // Routines + done
+  renderRoutines();
+  renderDoneList();
+}
+boot();
+</script>
+</body>
+</html>
