@@ -1,1 +1,1 @@
-# daily-dashboard
+# daystrip
