@@ -7,6 +7,11 @@
 <meta name="description" content="시간대별로 펼쳐 보는 데일리 대시보드 — 날씨, 시장, 루틴, Done list, 캘린더">
 <meta name="theme-color" content="#ffd9a8">
 
+<!-- HTML 캐시 최소화 (PWA에서 자주 굳는 문제 완화) -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+
 <!-- Favicon (모던 브라우저는 SVG 우선, 폴백으로 PNG) -->
 <link rel="icon" type="image/svg+xml" href="icon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
@@ -89,6 +94,35 @@
     font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums;
     background: var(--card); border: 1px solid var(--border);
     padding: 8px 14px; border-radius: 999px;
+  }
+  .header-right {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .refresh-btn {
+    border: 1px solid var(--border); background: var(--card);
+    color: var(--muted); cursor: pointer;
+    width: 36px; height: 36px; border-radius: 50%;
+    font-size: 16px; line-height: 1; font-family: inherit;
+    transition: all 0.3s ease;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .refresh-btn:hover { color: var(--text); border-color: var(--text); }
+  .refresh-btn.spinning { animation: spin 0.6s linear; pointer-events: none; }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .update-banner {
+    background: #2e8a52; color: white;
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; margin-bottom: 14px;
+    display: none; align-items: center; justify-content: space-between; gap: 10px;
+  }
+  .update-banner.show { display: flex; }
+  .update-banner .btn-update {
+    background: white; color: #2e8a52;
+    border: none; padding: 6px 12px; border-radius: 6px;
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
   }
 
   .ambient {
@@ -537,6 +571,11 @@
 <div class="wrap">
   <div class="ambient"></div>
 
+  <div class="update-banner" id="update-banner">
+    <span>새 버전이 준비됐어요. 새로고침하면 적용돼요.</span>
+    <button class="btn-update" id="apply-update">새로고침</button>
+  </div>
+
   <div class="banner" id="market-banner"></div>
 
   <header class="top">
@@ -548,7 +587,10 @@
       <div class="greet" title="클릭해서 닉네임 변경"><span class="emoji" id="greet-emoji">🌤️</span><span id="greet-text">좋은 하루</span><span id="greet-name"></span></div>
       <div class="date-row" id="date-row">날짜 불러오는 중…</div>
     </div>
-    <div class="clock" id="clock">--:--</div>
+    <div class="header-right">
+      <button class="refresh-btn" id="manual-refresh" title="새로고침" aria-label="새로고침">↻</button>
+      <div class="clock" id="clock">--:--</div>
+    </div>
   </header>
 
   <div class="tabs" role="tablist">
@@ -2123,6 +2165,58 @@ function cleanupOldKeys(prefix, keepN=14) {
     }
   } catch(_){}
 }
+
+/* ---------- Service Worker (PWA 자동 업데이트) ---------- */
+let _swInitiallyControlled = false;
+if ('serviceWorker' in navigator) {
+  _swInitiallyControlled = !!navigator.serviceWorker.controller;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(reg => {
+        // 새 SW 발견 → 업데이트 배너 표시 (사용자가 자발적으로 새로고침)
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              showUpdateBanner();
+            }
+          });
+        });
+      })
+      .catch(() => {});
+  });
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'SW_UPDATED' && _swInitiallyControlled) {
+      // 이미 페이지가 살아있는 동안 SW 새 버전이 활성화됨 → 배너로 안내
+      showUpdateBanner();
+    }
+  });
+}
+function showUpdateBanner() {
+  document.getElementById('update-banner')?.classList.add('show');
+}
+document.getElementById('apply-update')?.addEventListener('click', () => {
+  location.reload();
+});
+
+/* 헤더의 ↻ 새로고침 버튼 — 캐시까지 비우고 강제 reload */
+document.getElementById('manual-refresh')?.addEventListener('click', async (e) => {
+  const btn = e.currentTarget;
+  btn.classList.add('spinning');
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) { try { await r.update(); } catch(_){} }
+    }
+    if ('caches' in window) {
+      const names = await caches.keys();
+      await Promise.all(names.map(n => caches.delete(n)));
+    }
+  } catch(_){}
+  // 약간의 지연 후 새로고침 (애니메이션 보이도록)
+  setTimeout(() => location.reload(), 300);
+});
 
 /* ---------- Boot ---------- */
 async function boot() {
