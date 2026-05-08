@@ -164,6 +164,14 @@
     line-height: 1; font-family: inherit;
   }
   .weather-del:hover { color: var(--bad); background: var(--bg); }
+
+  /* 도시 검색 후보 picker */
+  .city-picker {
+    display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;
+  }
+  .city-picker .btn {
+    font-size: 12px; padding: 6px 10px; line-height: 1.3;
+  }
   .weather-card .temp { font-size: 36px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
   .weather-card .temp .icon { font-size: 28px; margin-right: 8px; }
   .weather-card .desc { font-size: 14px; color: var(--text); }
@@ -579,9 +587,9 @@
     <div class="panel-title">밤사이 미국장 뉴스</div>
     <div class="card">
       <div class="news-source-tabs" data-target="overnight-news">
-        <button class="news-source-tab active" data-src="google-us">Google News</button>
-        <button class="news-source-tab" data-src="investing-us">Investing.com</button>
+        <button class="news-source-tab active" data-src="investing-us">Investing.com</button>
         <button class="news-source-tab" data-src="yahoo-us">Yahoo Finance</button>
+        <button class="news-source-tab" data-src="google-us">Google News</button>
       </div>
       <ul class="news-list" id="overnight-news">
         <li class="loading">뉴스 불러오는 중…</li>
@@ -595,10 +603,19 @@
     <div class="card">
       <div id="kr-indices" style="margin-bottom:14px;"><div class="loading">불러오는 중…</div></div>
       <div class="news-source-tabs" data-target="kr-news">
-        <button class="news-source-tab active" data-src="google-kr">Google News</button>
-        <button class="news-source-tab" data-src="investing-kr">Investing.com KR</button>
+        <button class="news-source-tab active" data-src="investing-kr">Investing.com KR</button>
+        <button class="news-source-tab" data-src="google-kr">Google News</button>
       </div>
       <ul class="news-list" id="kr-news"><li class="loading">뉴스 불러오는 중…</li></ul>
+    </div>
+
+    <div class="panel-title">환율 <span class="hint">행 클릭 → 3개월 차트</span></div>
+    <div class="card">
+      <div id="fx-list"><div class="loading">불러오는 중…</div></div>
+      <div class="row-actions">
+        <input class="add-input" id="add-fx" placeholder="환율 추가 (예: USDJPY=X, GBPKRW=X, USDEUR=X)">
+        <button class="btn btn-primary" id="add-fx-btn">추가</button>
+      </div>
     </div>
 
     <div class="panel-title">내 관심종목 <span class="hint">행 클릭 → 3개월 차트</span></div>
@@ -643,9 +660,9 @@
     <div class="panel-title">미국장 뉴스</div>
     <div class="card">
       <div class="news-source-tabs" data-target="us-pm-news">
-        <button class="news-source-tab active" data-src="google-us">Google News</button>
-        <button class="news-source-tab" data-src="investing-us">Investing.com</button>
+        <button class="news-source-tab active" data-src="investing-us">Investing.com</button>
         <button class="news-source-tab" data-src="yahoo-us">Yahoo Finance</button>
+        <button class="news-source-tab" data-src="google-us">Google News</button>
       </div>
       <ul class="news-list" id="us-pm-news"><li class="loading">뉴스 불러오는 중…</li></ul>
     </div>
@@ -975,17 +992,8 @@ async function loadWeather() {
   saveSnapshot('weather', snapshot);
 }
 
-/* 도시 검색 (geocoding) + 추가 */
-async function geocodeCity(name) {
-  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=ko&format=json`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(`서버 응답 ${r.status}`);
-  const j = await r.json();
-  if (!j.results || j.results.length === 0) {
-    throw new Error('해당 도시를 찾지 못했어요. 영문/한글로 다시 시도해 보세요.');
-  }
-  const first = j.results[0];
-  // 한국 도시면 "구/시" 단위까지, 그 외엔 country 표시
+/* 도시 검색 (geocoding) — 접미사 자동 + 다수 후보 반환 */
+function buildCityOption(first) {
   const labelParts = [first.name];
   if (first.country_code === 'KR' && first.admin1 && first.admin1 !== first.name) {
     labelParts.unshift(first.admin1);
@@ -999,7 +1007,41 @@ async function geocodeCity(name) {
     lon: first.longitude
   };
 }
+async function geocodeCity(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) throw new Error('도시 이름을 입력해 주세요.');
+  // 한국 행정구역 접미사를 떼고 재시도하기 위한 변형
+  const variants = [trimmed];
+  const stripped = trimmed.replace(/(특별자치시|특별자치도|특별시|광역시|특례시|시|구|군|도)$/, '').trim();
+  if (stripped && stripped !== trimmed) variants.push(stripped);
 
+  for (const v of variants) {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(v)}&count=5&language=ko&format=json`;
+    const r = await fetch(url);
+    if (!r.ok) continue;
+    const j = await r.json();
+    if (j.results && j.results.length > 0) {
+      return j.results.map(buildCityOption);
+    }
+  }
+  throw new Error('해당 도시를 찾지 못했어요. 영문/한글 다른 표기(예: 시·구 단위)로 시도해 보세요.');
+}
+
+/* 후보 중 하나를 cities 목록에 추가 */
+function addCityToList(city, msg) {
+  const list = getCities();
+  if (list.find(c => Math.abs(c.lat - city.lat) < 0.01 && Math.abs(c.lon - city.lon) < 0.01)) {
+    if (msg) msg.textContent = '이미 추가된 도시예요.';
+    return false;
+  }
+  list.push(city);
+  saveCities(list);
+  renderWeatherSkeleton();
+  loadWeather();
+  return true;
+}
+
+let _cityCandidates = [];
 async function addCityFromInput() {
   const input = document.getElementById('add-city');
   const msg = document.getElementById('city-message');
@@ -1007,19 +1049,34 @@ async function addCityFromInput() {
   if (!v) return;
   msg.textContent = '검색 중…';
   try {
-    const city = await geocodeCity(v);
-    const list = getCities();
-    if (list.find(c => Math.abs(c.lat - city.lat) < 0.01 && Math.abs(c.lon - city.lon) < 0.01)) {
-      msg.textContent = '이미 추가된 도시예요.';
-      return;
+    const matches = await geocodeCity(v);
+    if (matches.length === 1) {
+      const ok = addCityToList(matches[0], msg);
+      if (ok) {
+        input.value = '';
+        msg.textContent = `"${matches[0].name}" 추가됨`;
+        setTimeout(() => { if (msg.textContent.startsWith('"')) msg.textContent = ''; }, 3000);
+      }
+    } else {
+      // 여러 후보 — 사용자가 선택
+      _cityCandidates = matches;
+      msg.innerHTML = `<div style="font-size:12px;color:var(--text);margin-bottom:6px;">여러 결과가 있어요. 원하는 곳을 선택하세요:</div>
+        <div class="city-picker">${matches.map((m, i) =>
+          `<button class="btn" type="button" data-pick="${i}">${escapeHtml(m.name)}</button>`).join('')}</div>`;
+      msg.querySelectorAll('[data-pick]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          const idx = parseInt(e.currentTarget.dataset.pick, 10);
+          const picked = _cityCandidates[idx];
+          if (!picked) return;
+          const ok = addCityToList(picked, msg);
+          if (ok) {
+            input.value = '';
+            msg.textContent = `"${picked.name}" 추가됨`;
+            setTimeout(() => { if (msg.textContent.startsWith('"')) msg.textContent = ''; }, 3000);
+          }
+        });
+      });
     }
-    list.push(city);
-    saveCities(list);
-    input.value = '';
-    msg.textContent = `"${city.name}" 추가됨`;
-    renderWeatherSkeleton();
-    await loadWeather();
-    setTimeout(() => { if (msg.textContent === `"${city.name}" 추가됨`) msg.textContent = ''; }, 3000);
   } catch(e) {
     msg.textContent = explainError(e);
   }
@@ -1065,6 +1122,8 @@ function symbolForStooq(sym) {
   const s = (sym || '').trim();
   if (!s) return s;
   const upper = s.toUpperCase();
+  // 환율 pair: USDKRW=X → usdkrw
+  if (upper.endsWith('=X')) return upper.slice(0,-2).toLowerCase();
   // 인덱스 매핑
   const idxMap = {
     '^GSPC':'^spx', '^IXIC':'^ndq', '^DJI':'^dji',
@@ -1308,8 +1367,12 @@ async function renderStockList(targetId, defs, opts = {}) {
     target.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', e => {
       e.stopPropagation();
       const idx = parseInt(e.currentTarget.dataset.del,10);
+      if (typeof opts.onDelete === 'function') {
+        opts.onDelete(idx);
+        return;
+      }
+      // Default: watchlist delete
       const w = getWatch(); w.splice(idx,1); saveWatch(w);
-      // 모든 watchlist 영역(아침·오후·저녁) 동시 갱신
       if (typeof renderAllWatchlists === 'function') {
         renderAllWatchlists();
       } else {
@@ -1504,6 +1567,63 @@ document.getElementById('add-symbol-pm')?.addEventListener('keydown', e => { if 
 // 호환을 위해 이전 함수명도 유지
 async function addWatchSymbol() { return addWatchSymbolFromInput(document.getElementById('add-symbol')); }
 
+/* ---------- 환율 (FX pairs) ---------- */
+const DEFAULT_FX = [
+  { sym: 'USDKRW=X', label: '원/달러' },
+  { sym: 'EURKRW=X', label: '원/유로' }
+];
+function getFxPairs() {
+  try {
+    const raw = localStorage.getItem('fx_pairs');
+    if (raw) return JSON.parse(raw);
+  } catch(_){}
+  return [...DEFAULT_FX];
+}
+function saveFxPairs(arr) { localStorage.setItem('fx_pairs', JSON.stringify(arr)); }
+
+async function renderFxList() {
+  const list = getFxPairs();
+  const targetEl = document.getElementById('fx-list');
+  if (!targetEl) return [];
+  if (list.length === 0) {
+    targetEl.innerHTML = '<div class="loading">환율 쌍을 추가해 주세요.</div>';
+    return [];
+  }
+  return await renderStockList('fx-list',
+    list.map(f => ({ sym: f.sym, label: f.label })),
+    {
+      editable: true,
+      persistLabels: false,  // 사용자 한글 라벨 유지
+      onDelete: (idx) => {
+        const fx = getFxPairs();
+        fx.splice(idx, 1);
+        saveFxPairs(fx);
+        renderFxList();
+      }
+    }
+  );
+}
+
+async function addFxFromInput() {
+  const input = document.getElementById('add-fx');
+  const v = (input.value || '').trim().toUpperCase();
+  if (!v) return;
+  let sym = v;
+  if (!sym.endsWith('=X')) sym += '=X';
+  const list = getFxPairs();
+  if (list.find(f => f.sym === sym)) { input.value = ''; return; }
+  // 자동 라벨: "USD/JPY" 식
+  const base = sym.slice(0, -2);
+  let label = base;
+  if (base.length === 6) label = base.slice(0,3) + '/' + base.slice(3);
+  list.push({ sym, label });
+  saveFxPairs(list);
+  input.value = '';
+  await renderFxList();
+}
+document.getElementById('add-fx-btn')?.addEventListener('click', addFxFromInput);
+document.getElementById('add-fx')?.addEventListener('keydown', e => { if (e.key==='Enter') addFxFromInput(); });
+
 /* ---------- News (직접 RSS 가져와 DOMParser로 파싱, CORS 프록시 경유) ---------- */
 /* 각 소스는 fallback URL 배열 — 첫 번째 실패 시 다음으로 자동 시도 */
 const NEWS_FEEDS = {
@@ -1565,7 +1685,7 @@ async function fetchRssDirect(url, max=8) {
       if (itemNodes.length === 0) {
         errors.push(`${p.name}: 기사 없음`); continue;
       }
-      const items = Array.from(itemNodes).slice(0, max).map(item => {
+      const items = Array.from(itemNodes).map(item => {
         const get = sel => item.querySelector(sel)?.textContent?.trim() || '';
         let link = get('link');
         if (!link) {
@@ -1582,7 +1702,13 @@ async function fetchRssDirect(url, max=8) {
       if (items.length === 0) {
         errors.push(`${p.name}: 기사 추출 실패`); continue;
       }
-      return items;
+      // 최신순으로 정렬 후 max개만 남기기
+      items.sort((a, b) => {
+        const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+        const db = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+        return db - da;
+      });
+      return items.slice(0, max);
     } catch(e) {
       errors.push(`${p.name}: ${e.message || e}`);
     }
@@ -1603,20 +1729,37 @@ async function fetchNewsFromSource(sourceKey, max=8) {
   }
   throw new Error(`${def.label} 모든 백업 실패 — ${errors.join(' / ')}`);
 }
+/* MM.DD HH:MM (24시간) — KST 기준 */
+function fmtNewsDate(d) {
+  if (!d) return '';
+  const parts = new Intl.DateTimeFormat('ko-KR', {
+    month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit',
+    hour12: false, hourCycle: 'h23', timeZone:'Asia/Seoul'
+  }).formatToParts(d);
+  const o = {}; parts.forEach(p => o[p.type] = p.value);
+  return `${o.month}.${o.day} ${o.hour}:${o.minute}`;
+}
+
 function renderNewsList(targetUlId, items) {
   const ul = document.getElementById(targetUlId);
   ul.innerHTML = '';
   if (!items || items.length === 0) {
     ul.innerHTML = '<li class="news-item"><div class="loading">표시할 뉴스가 없어요.</div></li>'; return;
   }
-  items.forEach(it => {
+  // 안전장치: 한 번 더 최신순 정렬
+  const sorted = [...items].sort((a, b) => {
+    const da = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+    const db = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+    return db - da;
+  });
+  sorted.forEach(it => {
     const li = document.createElement('li');
     li.className = 'news-item';
     const date = it.pubDate ? new Date(it.pubDate) : null;
-    const dateStr = date ? date.toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', timeZone:'Asia/Seoul'}) : '';
+    const dateStr = fmtNewsDate(date);
     li.innerHTML = `
       <a href="${escapeHtml(it.link)}" target="_blank" rel="noopener">${escapeHtml(it.title)}</a>
-      <div class="news-meta">${escapeHtml(it.author || '')} ${date ? '· '+dateStr : ''}</div>
+      <div class="news-meta">${dateStr}${it.author ? ' · '+escapeHtml(it.author) : ''}</div>
     `;
     ul.appendChild(li);
   });
@@ -2003,17 +2146,19 @@ async function boot() {
     renderStockList('kr-indices', KR_INDEX_DEFS),
     renderWatchlist('overnight-stocks', { editable: true }),
     renderWatchlist('watchlist',        { editable: true }),
-    renderWatchlist('watchlist-pm',     { editable: true })
+    renderWatchlist('watchlist-pm',     { editable: true }),
+    renderFxList()
   ]).then((results) => {
-    const usIdx = results[0]||[], krIdx = results[2]||[], watch1 = results[4]||[];
+    const usIdx = results[0]||[], krIdx = results[2]||[], watch1 = results[4]||[], fx = results[6]||[];
     saveSnapshot('indices', [...usIdx, ...krIdx]);
     saveSnapshot('watchlist', watch1);
+    saveSnapshot('fx', fx);
   });
 
   // News (default sources)
-  loadNews('overnight-news', 'google-us');
-  loadNews('kr-news',        'google-kr');
-  loadNews('us-pm-news',     'google-us');
+  loadNews('overnight-news', 'investing-us');
+  loadNews('kr-news',        'investing-kr');
+  loadNews('us-pm-news',     'investing-us');
 
   // Routines + done
   renderRoutines();
